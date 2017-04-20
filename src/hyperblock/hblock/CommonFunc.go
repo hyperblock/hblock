@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -17,19 +18,21 @@ func print_Log(msg string, logger *log.Logger) {
 	}
 	fmt.Println(msg)
 	if logger != nil {
+		msg = msg[15:]
 		logger.Println(msg)
 	}
 }
 
-func print_Error(err string, logger *log.Logger) {
+func print_Error(msg string, logger *log.Logger) {
 
-	if len(err) == 0 {
+	if len(msg) == 0 {
 		return
 	}
-	err = format_Error(err)
-	fmt.Println(err)
+	msg = format_Error(msg)
+	fmt.Println(msg)
 	if logger != nil {
-		logger.Println(err)
+		msg = msg[15:]
+		logger.Println(msg)
 	}
 }
 
@@ -41,6 +44,7 @@ func print_Panic(msg string, logger *log.Logger) {
 	msg = format_Error(msg)
 	fmt.Println(msg)
 	if logger != nil {
+		msg = msg[15:]
 		logger.Panicln(msg)
 	}
 }
@@ -53,6 +57,7 @@ func print_Fatal(msg string, logger *log.Logger) {
 	msg = format_Error(msg)
 	fmt.Println(msg)
 	if logger != nil {
+		msg = msg[15:]
 		logger.Fatalln(msg)
 	}
 }
@@ -99,22 +104,55 @@ func return_TemplateDir() (string, error) {
 
 func confirm_BackingFilePath(imgPath string) (string, error) {
 
-	_, err := os.Stat(imgPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			path, errTemp := return_TemplateDir()
-			path += "/" + imgPath
-			_, err = os.Stat(path)
-			if err != nil {
-				return "", err
-			} else {
-				return path, errTemp
-			}
-		} else {
-			return "", err
+	if (len(imgPath) > 0) && (imgPath[0] == '/') {
+		_, err := os.Stat(imgPath)
+		if err != nil {
+			return "", fmt.Errorf("Invalid template path '%s'", imgPath)
 		}
+		return imgPath, nil
 	}
-	return imgPath, nil
+	path, errTemp := return_TemplateDir()
+	if !strings.HasPrefix(imgPath, path) {
+		path += "/" + imgPath
+	}
+	_, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	} else {
+		return path, errTemp
+	}
+
+	// fullPath, _ := filepath.Abs(imgPath)
+	// return fullPath, nil
+	//	return imgPath, nil
+}
+
+func custom_Args(args []string, addition string) []string {
+
+	procName := os.Args[0]
+	ret := args
+	ret[0] = procName + " " + ret[0]
+	if addition != "" {
+		ret[0] += " " + addition
+	}
+	return ret
+}
+
+func return_Size(strSize string) int64 {
+
+	unit := strSize[len(strSize)-1:]
+	_size, err := strconv.Atoi(strSize[0 : len(strSize)-1])
+
+	if err != nil {
+		return -1
+	}
+	var sizeI64 int64
+	if unit == "M" {
+		sizeI64 = int64(_size * 1024 * 1024)
+	} else if unit == "G" {
+		sizeI64 = int64(_size*1024*1024) * 1024
+	}
+	return sizeI64
 }
 
 // see complete color rules in document in https://en.wikipedia.org/wiki/ANSI_escape_code#cite_note-ecma48-13

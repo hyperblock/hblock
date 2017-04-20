@@ -3,14 +3,15 @@ package hblock
 import (
 	"fmt"
 
-	"log"
-
 	"libguestfs.org/guestfs"
+
+	"log"
 )
 
 type InitParams struct {
-	name string
-	size int64
+	name   string
+	size   int64
+	output string
 }
 
 func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
@@ -27,10 +28,11 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		g.Close()
 		print_Panic(errCreate.Errmsg, logger)
 	}
-	msg := fmt.Sprintf("Create template '%s' finished.", obj.name)
 	g.Close()
-	print_Log(format_Success(msg), logger)
-	//fmt.Println(msg)
+	msg := fmt.Sprintf("Create template '%s' finished.", obj.name)
 
-	return OK, nil
+	print_Log(format_Success(msg), logger)
+	print_Log("Creating volume named "+obj.output, logger)
+	checkoutObj := CheckoutParams{layer: "", output: obj.output, template: obj.name}
+	return volume_checkout(checkoutObj, logger)
 }

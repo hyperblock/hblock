@@ -7,11 +7,9 @@ import (
 	"os"
 	"os/exec"
 
-	"strconv"
-
 	"strings"
 
-	"github.com/voxelbrain/goptions"
+	flags "github.com/jessevdk/go-flags"
 )
 
 // OptSelector decide the appropriate function to execute
@@ -30,7 +28,7 @@ func Create(_log *log.Logger) *OptSelector {
 // SendCommand : Execute args, call this after Create()
 func (p OptSelector) SendCommand(args []string) (int, error) {
 
-	//args = strings.Split("checkout -t /var/hyperblock/centos.img -l sp001 -o test002", " ")
+	//args = strings.Split("commit", " ")
 	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
 		return FAIL, fmt.Errorf("invalid option.")
@@ -81,58 +79,89 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 
 func (p OptSelector) init(args []string) (int, error) {
 
-	options := struct {
-		TemplateName string        `goptions:"--name, description='[required] Template name.\n'"`
-		Size         string        `goptions:"--size, description='[required] Disk size(M/G) of template.\n\t\t\t    eg.\n\t\t\t\thblock init --name template0 --size=500M.\n'"`
-		Help         goptions.Help `goptions:"-h,--help, description='Show this help\n'"`
-	}{}
-	os.Args = args
-	goptions.ParseAndFail(&options)
-	fmt.Println(options.TemplateName)
-	//p.logger.Println("init", args)
-	print_Log(strings.Join(args, " "), p.logger)
-	if options.TemplateName == "" {
-		msg := "--name is required."
+	var options struct {
+		Size   string `long:"size" description:"[required] Disk size(M/G) of template.\n\t\t\t    eg.\n\t\t\t\thblock init template0 --size=500M.\n"`
+		Output string `short:"o" description:"[optional] Output volume name.\n"`
+	}
+	os.Args = custom_Args(args, "<template name>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		//	print_Error(err.Error(), p.logger)
+		return FAIL, err
+	}
+	templateName := ""
+	if len(args) >= 1 {
+		templateName = args[0]
+		if len(args) > 1 {
+			msg := fmt.Sprintf("Get template name '%s' and ignore excrescent arguments.", templateName)
+			print_Log(msg, p.logger)
+		} else {
+			msg := fmt.Sprintf("Get template name '%s'.", templateName)
+			print_Log(msg, p.logger)
+		}
+	} else {
+		msg := "Can't get template name."
+		print_Error(msg, p.logger)
 		return FAIL, fmt.Errorf(msg)
 	}
+
 	if options.Size == "" {
 		msg := "--size is required."
-		p.logger.Println(msg)
+		print_Error(msg, p.logger)
 		return FAIL, fmt.Errorf(msg)
 	}
-	strSize := options.Size
-	unit := strSize[len(strSize)-1:]
-	_size, err := strconv.Atoi(strSize[0 : len(strSize)-1])
-
-	if err != nil {
-		msg := "invalid template size"
-		//fmt.Println(options.Help)
-		p.logger.Println(msg)
+	sizeI64 := return_Size(options.Size)
+	if sizeI64 < 0 {
+		msg := "Invalid --size set"
+		print_Error(msg, p.logger)
 		return FAIL, fmt.Errorf(msg)
 	}
-	var sizeI64 int64
-	if unit == "M" {
-		sizeI64 = int64(_size * 1024 * 1024)
-	} else if unit == "G" {
-		sizeI64 = int64(_size*1024*1024) * 1024
+	directPathFlg := false
+	index := strings.LastIndex(templateName, "/")
+	if index != -1 {
+		directPathFlg = true
 	}
-	obj := InitParams{name: options.TemplateName, size: sizeI64}
+	if options.Output == "" {
+		if directPathFlg {
+			options.Output = templateName
+		} else {
+			options.Output = templateName[index+1:]
+		}
+	}
+	//	fmt.Println(templateName)
+	if !directPathFlg {
+		templateDir, _ := return_TemplateDir()
+		templateName = templateDir + "/" + templateName
+	}
+	obj := InitParams{name: templateName, size: sizeI64, output: options.Output}
+	msg := fmt.Sprintf("Init template named '%s' and new volume '%s'", templateName, obj.output)
+	print_Log(msg, p.logger)
 	return create_empty_template(obj, p.logger)
-	//return 0, nil
 }
 
 func (p OptSelector) checkout(args []string) (int, error) {
 
-	options := struct {
-		Help     goptions.Help `goptions:"-h,--help, description='Show this help.\n'"`
-		Volume   string        `goptions:"-v,--vol, description='<volume_name>\tSpecify the volume name which needs to be update(restore).\n'"`
-		Layer    string        `goptions:"-l,--layer, description='<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume.'\n"`
-		Output   string        `goptions:"-o,--output, description='[required if use \\'-t\\'] <output_volume_path>.\n'"`
-		Template string        `goptions:"-t,--template, description='<template_name>\t Create a new volume from template.\n'"`
-		Force    bool          `goptions:"-f,--force"`
-	}{}
-	os.Args = args
-	goptions.ParseAndFail(&options)
+	var options struct {
+		Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
+
+		Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
+
+		Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+
+		Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+
+		Force bool `short:"f" long:"force.\n"`
+	}
+	os.Args = custom_Args(args, "")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, err
+	}
+	if len(args) > 0 {
+		msg := "Invalid options"
+		print_Error(msg, p.logger)
+		return FAIL, fmt.Errorf(msg)
+	}
 	if options.Template != "" && options.Volume != "" {
 		msg := "Can't use both -l and -t."
 		print_Error(msg, p.logger)
@@ -168,8 +197,33 @@ func (p OptSelector) checkout(args []string) (int, error) {
 
 func (p OptSelector) commit(args []string) (int, error) {
 
-	p.logger.Println("commit", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
+	//p.logger.Println("commit", args)
+	//fmt.Println(args)
+	//return FAIL, fmt.Errorf("Option unfinished.")
+	var options struct {
+		CommitMsg string `short:"m" description:"commit message"`
+	}
+	os.Args = custom_Args(args, "<volume name>")
+	//	os.Args += " <volume name>"
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, nil
+	}
+	//	fmt.Println(args)
+	if len(args) < 1 {
+		msg := "No volume name specified."
+		print_Error(msg, p.logger)
+		return FAIL, fmt.Errorf(msg)
+	}
+	//fmt.Println(args)
+	if options.CommitMsg == "" {
+		msg := "Use -m to set commit message."
+		print_Error(msg, p.logger)
+	}
+	commitObj := CommitParams{
+		commitMsg: options.CommitMsg, volumeName: args[0],
+	}
+	return volume_commit(commitObj, p.logger)
 	return 0, nil
 }
 
@@ -301,14 +355,12 @@ func (p OptSelector) list(args []string) (int, error) {
 func (p OptSelector) show(args []string) (int, error) {
 
 	p.logger.Println("show", args)
-	//	return FAIL, fmt.Errorf("Option unfinished.")
-	image := args[0]
-	cmd := exec.Command("qcow2-img", "info", image)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
+	return FAIL, fmt.Errorf("Option unfinished.")
+	image, err := confirm_BackingFilePath(args[1])
+	if image == "" {
+		print_Error(err.Error(), p.logger)
 		return FAIL, err
 	}
-	return OK, err
+
+	return show_template(image)
 }
