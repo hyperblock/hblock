@@ -12,12 +12,6 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type CommitParams struct {
-	commitMsg  string
-	volumeName string
-	snapshot   string
-}
-
 func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 
 	obj.snapshot = fmt.Sprintf("%s", uuid.NewV4())
@@ -31,5 +25,12 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	print_Log(format_Success(string(result)), logger)
+	// volumeLog := JsonLog{
+	// 	Operation:  "commit",
+	// 	UUID:       obj.snapshot,
+	// 	Info:       obj.commitMsg,
+	// 	VolumeName: obj.volumeName,
+	// }
+	// push_Log(volumeLog, logger)
 	return OK, nil
 }

@@ -9,6 +9,8 @@ import (
 
 	"strings"
 
+	"strconv"
+
 	flags "github.com/jessevdk/go-flags"
 )
 
@@ -28,9 +30,10 @@ func Create(_log *log.Logger) *OptSelector {
 // SendCommand : Execute args, call this after Create()
 func (p OptSelector) SendCommand(args []string) (int, error) {
 
-	//args = strings.Split("commit", " ")
+	//args = strings.Split("init test0.img --size 20G", " ")
 	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
+		print_Error("invalid option.", p.logger)
 		return FAIL, fmt.Errorf("invalid option.")
 	}
 	option := args[0]
@@ -73,7 +76,9 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 	case "show":
 		return p.show(args)
 	default:
-		return FAIL, fmt.Errorf("invalid option, and there is no --help :)")
+		msg := "invalid option, and there is no --help :)"
+		print_Error(msg, p.logger)
+		return FAIL, fmt.Errorf(msg, p.logger)
 	}
 }
 
@@ -163,7 +168,7 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Template != "" && options.Volume != "" {
-		msg := "Can't use both -l and -t."
+		msg := "Can't use both -v and -t."
 		print_Error(msg, p.logger)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -173,6 +178,7 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Volume != "" {
+		options.Volume = return_AbsPath(options.Volume)
 		_, err := os.Stat(options.Volume)
 		if err != nil {
 			msg := fmt.Sprintf("Can't locate volume_name '%s'", options.Volume)
@@ -224,7 +230,7 @@ func (p OptSelector) commit(args []string) (int, error) {
 		commitMsg: options.CommitMsg, volumeName: args[0],
 	}
 	return volume_commit(commitObj, p.logger)
-	return 0, nil
+
 }
 
 func (p OptSelector) clone(args []string) (int, error) {
@@ -257,9 +263,43 @@ func (p OptSelector) save(args []string) (int, error) {
 
 func (p OptSelector) log(args []string) (int, error) {
 
-	p.logger.Println("log", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	// p.logger.Println("log", args)
+	//	return FAIL, fmt.Errorf("Option unfinished.")
+	var options struct {
+		// Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
+
+		// Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
+
+		// Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+
+		// Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+
+		// Force bool `short:"f" long:"force.\n"`
+		//Last int `short:"l" long:"last" description:"<number> Show the last <number> of commit logs.`
+	}
+	os.Args = custom_Args(args, "")
+	if len(args) <= 1 {
+		msg := "Too few arguments."
+		print_Error(msg, p.logger)
+		fmt.Println(OPT_LOG_USAGE)
+		return FAIL, nil
+	}
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		print_Error(err.Error(), p.logger)
+		fmt.Println(OPT_LOG_USAGE)
+		return FAIL, err
+	}
+	fmt.Println(args[0])
+	//volume, err := confirm_BackingFilePath(args[0])
+	volume := return_AbsPath(args[0])
+
+	if volume == "" || !FileExists(volume) {
+		print_Error(err.Error(), p.logger)
+		fmt.Println(OPT_LOG_USAGE)
+		return FAIL, err
+	}
+	return volume_commit_history(volume, p.logger)
 }
 
 func (p OptSelector) rebase(args []string) (int, error) {
@@ -271,9 +311,71 @@ func (p OptSelector) rebase(args []string) (int, error) {
 
 func (p OptSelector) reset(args []string) (int, error) {
 
-	p.logger.Println("reset", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	//	p.logger.Println("reset", args)
+	//	return FAIL, fmt.Errorf("Option unfinished.")
+	var options struct {
+		// Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
+
+		// Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
+
+		// Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+
+		// Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+
+		// Force bool `short:"f" long:"force.\n"`
+		//Last int `short:"l" long:"last" description:"<number> Show the last <number> of commit logs.`
+	}
+	os.Args = custom_Args(args, "")
+	if len(args) <= 2 {
+		msg := "Too few arguments."
+		print_Error(msg, p.logger)
+		fmt.Println(OPT_RESET_USAGE)
+		return FAIL, nil
+	}
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		print_Error(err.Error(), p.logger)
+		fmt.Println(OPT_RESET_USAGE)
+		return FAIL, err
+	}
+	resetObj := ResetParams{time: -1, volume: return_AbsPath(args[0])}
+	if !FileExists(resetObj.volume) {
+		msg := "volume can not find."
+		print_Error(msg, p.logger)
+		fmt.Printf(OPT_RESET_USAGE)
+		return FAIL, fmt.Errorf(msg)
+	}
+	suffix := get_StringAfter(args[1], "HEAD")
+	if len(suffix) == 0 {
+		resetObj.time = 0
+	} else if suffix[0] == '^' {
+		count := 0
+		for _, ch := range suffix {
+			if ch != '^' {
+				msg := "invalid options."
+				print_Error(msg, p.logger)
+				fmt.Printf(OPT_RESET_USAGE)
+				return FAIL, fmt.Errorf(msg)
+			}
+			count++
+		}
+		resetObj.time = count
+	} else if suffix[0] == '~' {
+		num, err := strconv.Atoi(suffix[1:])
+		if err != nil {
+			msg := "invalid options."
+			print_Error(msg, p.logger)
+			fmt.Printf(OPT_RESET_USAGE)
+			return FAIL, fmt.Errorf(msg)
+		}
+		resetObj.time = num
+	} else {
+		resetObj.uuid = suffix
+	}
+	//	fmt.Println(resetObj)
+	print_Trace(resetObj)
+	return reset_volume(&resetObj, p.logger)
+
 }
 
 func (p OptSelector) tag(args []string) (int, error) {
@@ -355,12 +457,20 @@ func (p OptSelector) list(args []string) (int, error) {
 func (p OptSelector) show(args []string) (int, error) {
 
 	p.logger.Println("show", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
+	//	return FAIL, fmt.Errorf("Option unfinished.")
+	if len(args) <= 1 {
+		msg := "Too few arguments.\n"
+		print_Error(msg, p.logger)
+		fmt.Println(OPT_SHOW_USAGE)
+		return FAIL, nil
+	}
 	image, err := confirm_BackingFilePath(args[1])
 	if image == "" {
 		print_Error(err.Error(), p.logger)
+		usage := OPT_SHOW_USAGE
+		fmt.Println(usage)
 		return FAIL, err
 	}
 
-	return show_template(image)
+	return show_template(image, p.logger)
 }

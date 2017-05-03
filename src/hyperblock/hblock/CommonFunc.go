@@ -1,11 +1,14 @@
 package hblock
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func print_Log(msg string, logger *log.Logger) {
@@ -62,8 +65,15 @@ func print_Fatal(msg string, logger *log.Logger) {
 	}
 }
 
+func print_Trace(a ...interface{}) {
+
+	msg := format_Trace(fmt.Sprint(a))
+	fmt.Println(msg)
+}
+
 func get_StringAfter(content string, prefix string) string {
 
+	print_Trace(fmt.Sprintf("get_StringAfter( %s, %s )", content, prefix))
 	q := strings.Index(content, prefix)
 	if q == -1 {
 		return content
@@ -91,14 +101,32 @@ func get_InfoValue(list []string, keyword string) string {
 	return ""
 }
 
+func CurrentDir() (string, error) {
+
+	pwd := exec.Command("pwd")
+	ret, err := pwd.Output()
+	if err != nil {
+		return "", err
+	}
+	dir := string(ret)
+	return dir[:len(dir)-1] + "/", nil
+}
+
 func return_TemplateDir() (string, error) {
 
-	ret := os.Getenv("HBLOCK_TEMPLATE_DIR")
-	//	fmt.Println("env", fmt.Sprintf("[%s]", ret))
-	if ret == "" {
-		msg := format_Warning("env HBLOCK_TEMPLATE_DIR not set. use default dir '/var/hyperblock'")
-		return "/var/hyperblock", fmt.Errorf(msg)
+	// ret := os.Getenv("HBLOCK_TEMPLATE_DIR")
+	// //	fmt.Println("env", fmt.Sprintf("[%s]", ret))
+	// if ret == "" {
+	// 	msg := format_Warning("env HBLOCK_TEMPLATE_DIR not set. use default dir '/var/hyperblock'")
+	// 	return "/var/hyperblock", fmt.Errorf(msg)
+	// }
+	// return ret, nil
+	path, err := exec.Command("pwd").Output()
+	if err != nil {
+		return "", err
 	}
+	ret := string(path[:len(path)-1]) + "/" + DEFALUT_BACKING_FILE_DIR
+	print_Trace("template dir: " + ret)
 	return ret, nil
 }
 
@@ -121,10 +149,15 @@ func confirm_BackingFilePath(imgPath string) (string, error) {
 	} else {
 		return path, errTemp
 	}
+}
 
-	// fullPath, _ := filepath.Abs(imgPath)
-	// return fullPath, nil
-	//	return imgPath, nil
+func FileExists(filePath string) bool {
+
+	_, err := os.Stat(filePath)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func custom_Args(args []string, addition string) []string {
@@ -136,6 +169,19 @@ func custom_Args(args []string, addition string) []string {
 		ret[0] += " " + addition
 	}
 	return ret
+}
+
+func return_AbsPath(path string) string {
+
+	if path[0] == '/' {
+		return path
+	}
+	absPath, err := CurrentDir()
+	if err != nil {
+		return path
+	}
+	absPath += path
+	return absPath
 }
 
 func return_Size(strSize string) int64 {
@@ -153,6 +199,119 @@ func return_Size(strSize string) int64 {
 		sizeI64 = int64(_size*1024*1024) * 1024
 	}
 	return sizeI64
+}
+
+func return_JsonBackingFile(backingFilePath string) (JsonBackingFile, error) {
+
+	args := []string{"info", backingFilePath, "--output", "json"}
+	cmd := exec.Command("qcow2-img", args[0:]...)
+	print_Trace(fmt.Sprintf("qcow2-img info %s --output json", backingFilePath))
+	retBytes, err := cmd.Output()
+	if err != nil {
+		return JsonBackingFile{}, err
+	}
+	jsonBackingFile := JsonBackingFile{}
+	err = json.Unmarshal(retBytes, &jsonBackingFile)
+	print_Trace("Json deserialized.")
+	if err != nil {
+		return JsonBackingFile{}, err
+	}
+	return jsonBackingFile, nil
+}
+
+func return_Snapshots(jsonBackingFile *JsonBackingFile) []SnapShot {
+
+	list := jsonBackingFile.Snapshots
+	ret := []SnapShot{}
+	for _, item := range list {
+		snapShot := SnapShot{
+			id: item.Id, diskSize: item.DiskSize, createDate: time.Unix(item.DateSec, item.DateNSec),
+		}
+		nameInfo := strings.Split(item.Name, ",")
+		snapShot.uuid = nameInfo[0]
+		snapShot.parent_uuid = nameInfo[1]
+		snapShot.commit_msg = nameInfo[2]
+		print_Trace(snapShot)
+		ret = append(ret, snapShot)
+	}
+	return ret
+}
+
+func return_JsonVolume(volumePath string) (JsonVolume, error) {
+
+	args := []string{"info", volumePath, "--output", "json"}
+	cmd := exec.Command("qcow2-img", args[0:]...)
+	retBytes, err := cmd.Output()
+	if err != nil {
+		return JsonVolume{}, err
+	}
+	jsonVolume := JsonVolume{}
+	err = json.Unmarshal(retBytes, &jsonVolume)
+	if err != nil {
+		return JsonVolume{}, err
+	}
+	return jsonVolume, nil
+}
+
+func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
+
+	volInfo := VolumeInfo{
+		fileName: jsonVolume.Filename, actualSize: jsonVolume.ActualSize, virtualSize: jsonVolume.VirutalSize,
+	}
+	args := strings.Split(jsonVolume.BackingFile, "?")
+	volInfo.backingFile = get_StringAfter(args[0], "qcow2://")
+	volInfo.layer = get_StringAfter(args[1], "layer=")
+	return volInfo
+}
+
+func return_LayerUUID(backingFilePath string, layerPrefix string) (string, error) {
+
+	if layerPrefix == "" {
+		return "", nil
+	}
+	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
+	if err != nil {
+		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
+	}
+	snapshots := return_Snapshots(&jsonBackingFile)
+	if len(snapshots) == 0 {
+		return "", fmt.Errorf("There're no any layer in backing file.")
+	}
+	cnt := 0
+	ret := ""
+	for _, item := range snapshots {
+		uuid := item.uuid
+		if strings.HasPrefix(uuid, layerPrefix) {
+			cnt++
+			ret = uuid
+		}
+	}
+	if cnt == 0 {
+		return "", fmt.Errorf(
+			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
+	}
+	if cnt > 1 {
+		return "", fmt.Errorf(
+			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
+	}
+	return ret, nil
+}
+
+func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []SnapShot {
+
+	commitList := return_Snapshots(jsonBackingFile)
+	ret := []SnapShot{}
+
+	for i := len(commitList) - 1; i >= 0; i-- {
+		if commitList[i].uuid != p {
+			continue
+		}
+		//	fmt.Println(commitList[i].uuid)
+
+		ret = append(ret, commitList[i])
+		p = commitList[i].parent_uuid
+	}
+	return ret
 }
 
 // see complete color rules in document in https://en.wikipedia.org/wiki/ANSI_escape_code#cite_note-ecma48-13

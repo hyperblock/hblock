@@ -8,12 +8,6 @@ import (
 	"log"
 )
 
-type InitParams struct {
-	name   string
-	size   int64
-	output string
-}
-
 func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 
 	//output := obj.name

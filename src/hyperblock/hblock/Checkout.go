@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-type CheckoutParams struct {
-	layer    string
-	volume   string
-	output   string
-	template string
-}
-
 func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 
 	checkoutArgs := []string{}
@@ -35,7 +28,11 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 		strValue := get_InfoValue(volInfoList, "backing file")
 		backingFile := get_StringBefore(
 			get_StringAfter(strValue, "qcow2://"), "?")
-		layer := obj.layer
+		layer, err := return_LayerUUID(backingFile, obj.layer)
+		if err != nil {
+			print_Error(err.Error(), logger)
+			return FAIL, err
+		}
 		backingFile, err = confirm_BackingFilePath(backingFile)
 		if err != nil {
 			print_Error(err.Error(), logger)
@@ -52,7 +49,6 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 		backingFile, err := confirm_BackingFilePath(obj.template)
 		if err != nil {
 			if strings.Index(err.Error(), "env") != -1 {
-				//fmt.Println(err.Error(), err.Error()[0)
 				print_Log(err.Error(), logger)
 			} else {
 				print_Error(err.Error(), logger)
@@ -63,7 +59,12 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 			print_Error(msg, logger)
 			return FAIL, fmt.Errorf(msg)
 		}
-		checkoutArgs = []string{"create", "-t", backingFile, "-l", obj.layer, obj.output}
+		layer, err := return_LayerUUID(backingFile, obj.layer)
+		if err != nil {
+			print_Error(err.Error(), logger)
+			return FAIL, err
+		}
+		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
 	}
 
 	//	createArgs := []string{"-l", layer, "-t", backingFile}
