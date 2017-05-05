@@ -3,6 +3,7 @@ package hblock
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -73,7 +74,7 @@ func print_Trace(a ...interface{}) {
 
 func get_StringAfter(content string, prefix string) string {
 
-	print_Trace(fmt.Sprintf("get_StringAfter( %s, %s )", content, prefix))
+	//	print_Trace(fmt.Sprintf("get_StringAfter( %s, %s )", content, prefix))
 	q := strings.Index(content, prefix)
 	if q == -1 {
 		return content
@@ -101,7 +102,7 @@ func get_InfoValue(list []string, keyword string) string {
 	return ""
 }
 
-func CurrentDir() (string, error) {
+func return_CurrentDir() (string, error) {
 
 	pwd := exec.Command("pwd")
 	ret, err := pwd.Output()
@@ -151,7 +152,7 @@ func confirm_BackingFilePath(imgPath string) (string, error) {
 	}
 }
 
-func FileExists(filePath string) bool {
+func PathFileExists(filePath string) bool {
 
 	_, err := os.Stat(filePath)
 	if err != nil {
@@ -176,7 +177,7 @@ func return_AbsPath(path string) string {
 	if path[0] == '/' {
 		return path
 	}
-	absPath, err := CurrentDir()
+	absPath, err := return_CurrentDir()
 	if err != nil {
 		return path
 	}
@@ -264,19 +265,8 @@ func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
 	return volInfo
 }
 
-func return_LayerUUID(backingFilePath string, layerPrefix string) (string, error) {
+func return_LayerUUID_from_Snapshots(snapshots []SnapShot, layerPrefix string) (string, error) {
 
-	if layerPrefix == "" {
-		return "", nil
-	}
-	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
-	if err != nil {
-		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
-	}
-	snapshots := return_Snapshots(&jsonBackingFile)
-	if len(snapshots) == 0 {
-		return "", fmt.Errorf("There're no any layer in backing file.")
-	}
 	cnt := 0
 	ret := ""
 	for _, item := range snapshots {
@@ -297,6 +287,22 @@ func return_LayerUUID(backingFilePath string, layerPrefix string) (string, error
 	return ret, nil
 }
 
+func return_LayerUUID(backingFilePath string, layerPrefix string) (string, error) {
+
+	if layerPrefix == "" {
+		return "", nil
+	}
+	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
+	if err != nil {
+		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
+	}
+	snapshots := return_Snapshots(&jsonBackingFile)
+	if len(snapshots) == 0 {
+		return "", fmt.Errorf("There're no any layer in backing file.")
+	}
+	return return_LayerUUID_from_Snapshots(snapshots, layerPrefix)
+}
+
 func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []SnapShot {
 
 	commitList := return_Snapshots(jsonBackingFile)
@@ -312,6 +318,52 @@ func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []SnapSho
 		p = commitList[i].parent_uuid
 	}
 	return ret
+}
+
+func return_RepoPath_Type(path string) int {
+
+	path = strings.ToLower(path)
+	if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
+		return REPO_PATH_HTTP
+	}
+	if strings.HasPrefix(path, "ssh://") {
+		return REPO_PATH_SSH
+	}
+	return REPO_PATH_LOCAL
+}
+
+func CopyFile(dstPath, srcPath string) (int64, error) {
+
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return 0, err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return 0, err
+	}
+	defer dst.Close()
+	return io.Copy(dst, src)
+}
+
+func hb_Init() (int, error) {
+
+	currentDir, err := return_CurrentDir()
+	if err != nil {
+		msg := fmt.Sprintf("Initialization failed. (%s)", err.Error)
+		return FAIL, fmt.Errorf(msg)
+	}
+	hbDir := currentDir + "/" + DEFALUT_BACKING_FILE_DIR
+	if PathFileExists(hbDir) {
+		return OK, nil
+	}
+	err = os.Mkdir(hbDir, 0744)
+	if err != nil {
+		msg := fmt.Sprintf("Create init dir '%s' failed. (%s)", hbDir, err.Error())
+		return FAIL, fmt.Errorf(msg)
+	}
+	return OK, nil
 }
 
 // see complete color rules in document in https://en.wikipedia.org/wiki/ANSI_escape_code#cite_note-ecma48-13

@@ -19,6 +19,12 @@ const (
 	succ = "[SUCC]"
 )
 
+const (
+	REPO_PATH_LOCAL = 0
+	REPO_PATH_HTTP  = 1
+	REPO_PATH_SSH   = 2
+)
+
 const DEFALUT_BACKING_FILE_DIR = ".hb"
 
 const OPT_SHOW_USAGE = `Usage:

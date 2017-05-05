@@ -71,3 +71,10 @@ type ResetParams struct {
 	uuid   string
 	volume string
 }
+
+type CloneParams struct {
+	repoPath    string
+	checkoutFlg bool
+	layerUUID   string
+	protocol	int
+}

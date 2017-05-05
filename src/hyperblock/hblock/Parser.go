@@ -235,9 +235,28 @@ func (p OptSelector) commit(args []string) (int, error) {
 
 func (p OptSelector) clone(args []string) (int, error) {
 
-	p.logger.Println("clone", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	var options struct {
+		//			Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
+		Layer string `short:"l" long:"layer" description:"Checkout <layer> instead of the HEAD\n"`
+
+		CheckoutFlag bool `short:"n" long:"no-checkout" description:"No checkout of HEAD is performed after clone is complete.\n"`
+	}
+	os.Args = custom_Args(args, "<repo path>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, err
+	}
+	if len(args) != 1 {
+		msg := "Invalid arguments. Use '-h' for help."
+		print_Error(msg, p.logger)
+		return FAIL, fmt.Errorf(msg)
+	}
+	cloneObj := CloneParams{
+		repoPath:    args[0],
+		checkoutFlg: !options.CheckoutFlag,
+		layerUUID:   options.Layer,
+	}
+	return clone_Repo(&cloneObj, p.logger)
 }
 
 func (p OptSelector) pull(args []string) (int, error) {
@@ -294,7 +313,7 @@ func (p OptSelector) log(args []string) (int, error) {
 	//volume, err := confirm_BackingFilePath(args[0])
 	volume := return_AbsPath(args[0])
 
-	if volume == "" || !FileExists(volume) {
+	if volume == "" || !PathFileExists(volume) {
 		print_Error(err.Error(), p.logger)
 		fmt.Println(OPT_LOG_USAGE)
 		return FAIL, err
@@ -339,7 +358,7 @@ func (p OptSelector) reset(args []string) (int, error) {
 		return FAIL, err
 	}
 	resetObj := ResetParams{time: -1, volume: return_AbsPath(args[0])}
-	if !FileExists(resetObj.volume) {
+	if !PathFileExists(resetObj.volume) {
 		msg := "volume can not find."
 		print_Error(msg, p.logger)
 		fmt.Printf(OPT_RESET_USAGE)
@@ -436,10 +455,11 @@ func (p OptSelector) launch(args []string) (int, error) {
 
 func (p OptSelector) list(args []string) (int, error) {
 
-	p.logger.Println("list", args)
-	targetdir := "/var/hyperblock"
-	if len(args) == 1 {
-		targetdir = args[0]
+	print_Trace(args)
+	targetdir, _ := return_CurrentDir()
+	targetdir += "/" + DEFALUT_BACKING_FILE_DIR
+	if len(args) > 1 {
+		targetdir = args[1]
 	}
 	dir, err := ioutil.ReadDir(targetdir)
 	if err != nil {

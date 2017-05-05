@@ -11,6 +11,12 @@ import (
 func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 
 	//output := obj.name
+	print_Log("Init hb directory.", logger)
+	_, err := hb_Init()
+	if err != nil {
+		print_Error(err.Error(), logger)
+		return FAIL, err
+	}
 	g, errno := guestfs.Create()
 	if errno != nil {
 		return FAIL, errno
