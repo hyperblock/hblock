@@ -68,8 +68,8 @@ func print_Fatal(msg string, logger *log.Logger) {
 
 func print_Trace(a ...interface{}) {
 
-	msg := format_Trace(fmt.Sprint(a))
-	fmt.Println(msg)
+	// msg := format_Trace(fmt.Sprint(a))
+	// fmt.Println(msg)
 }
 
 func get_StringAfter(content string, prefix string) string {
@@ -265,8 +265,49 @@ func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
 	return volInfo
 }
 
-func return_LayerUUID_from_Snapshots(snapshots []SnapShot, layerPrefix string) (string, error) {
+// func return_LayerUUID_from_Snapshots(snapshots []SnapShot, layerPrefix string) (string, error) {
 
+// 	cnt := 0
+// 	ret := ""
+// 	for _, item := range snapshots {
+// 		uuid := item.uuid
+// 		if strings.HasPrefix(uuid, layerPrefix) {
+// 			cnt++
+// 			ret = uuid
+// 		}
+// 	}
+// 	if cnt == 0 {
+// 		return "", fmt.Errorf(
+// 			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
+// 	}
+// 	if cnt > 1 {
+// 		return "", fmt.Errorf(
+// 			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
+// 	}
+// 	return ret, nil
+// }
+
+func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast bool) (string, error) {
+
+	if layerPrefix == "" && !returnLast {
+		//msg := fmt.Sprintf("layerPrefix is null and not return last layer.")
+		return "", nil
+	}
+	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
+	if err != nil {
+		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
+	}
+	snapshots := return_Snapshots(&jsonBackingFile)
+	if len(snapshots) == 0 {
+		return "", fmt.Errorf("There're no any layer in backing file.")
+	}
+	if returnLast {
+		if layerPrefix == "" {
+			return snapshots[len(snapshots)-1].uuid, nil
+		} else {
+			return "", fmt.Errorf("'returnLast' flag is true but LayerPrefix is not null.")
+		}
+	}
 	cnt := 0
 	ret := ""
 	for _, item := range snapshots {
@@ -285,22 +326,7 @@ func return_LayerUUID_from_Snapshots(snapshots []SnapShot, layerPrefix string) (
 			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
 	}
 	return ret, nil
-}
-
-func return_LayerUUID(backingFilePath string, layerPrefix string) (string, error) {
-
-	if layerPrefix == "" {
-		return "", nil
-	}
-	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
-	if err != nil {
-		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
-	}
-	snapshots := return_Snapshots(&jsonBackingFile)
-	if len(snapshots) == 0 {
-		return "", fmt.Errorf("There're no any layer in backing file.")
-	}
-	return return_LayerUUID_from_Snapshots(snapshots, layerPrefix)
+	//	return return_LayerUUID_from_Snapshots(snapshots, layerPrefix)
 }
 
 func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []SnapShot {

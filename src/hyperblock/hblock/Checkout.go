@@ -28,7 +28,7 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 		strValue := get_InfoValue(volInfoList, "backing file")
 		backingFile := get_StringBefore(
 			get_StringAfter(strValue, "qcow2://"), "?")
-		layer, err := return_LayerUUID(backingFile, obj.layer)
+		layer, err := return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			print_Error(err.Error(), logger)
 			return FAIL, err
@@ -59,7 +59,7 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 			print_Error(msg, logger)
 			return FAIL, fmt.Errorf(msg)
 		}
-		layer, err := return_LayerUUID(backingFile, obj.layer)
+		layer, err := return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			print_Error(err.Error(), logger)
 			return FAIL, err
@@ -92,6 +92,6 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 		}
 	}
 	//	fmt.Println(backingFile)
-	print_Log(format_Success("Finished."), logger)
+	print_Log(format_Success("Checkout finished."), logger)
 	return OK, nil
 }

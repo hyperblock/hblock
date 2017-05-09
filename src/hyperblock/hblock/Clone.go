@@ -1,8 +1,12 @@
 package hblock
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 )
@@ -10,14 +14,19 @@ import (
 func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 
 	obj.protocol = return_RepoPath_Type(obj.repoPath)
+	var err error
 	if obj.protocol == REPO_PATH_LOCAL {
-		_, err := clone_Local(obj, logger)
-		if err != nil {
-			print_Error(err.Error(), logger)
-			return FAIL, err
-		}
-		print_Log(format_Success("Clone finished!"), logger)
+		_, err = clone_Local(obj, logger)
+	} else if obj.protocol == REPO_PATH_HTTP {
+		_, err = clone_Http(obj, logger)
+	} else if obj.protocol == REPO_PATH_SSH {
+		//_, err = clone_
 	}
+	if err != nil {
+		print_Error(err.Error(), logger)
+		return FAIL, err
+	}
+	print_Log(format_Success("Clone finished."), logger)
 	return OK, nil
 }
 
@@ -88,29 +97,86 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (int, error) {
 	}
 	print_Log("Ready to checkout from backing file.", logger)
 	if !volFlag || obj.layerUUID != "" {
-		jsonBackingFile, err := return_JsonBackingFile(obj.repoPath)
+		checkoutObj.layer, err = return_LayerUUID(obj.repoPath, obj.layerUUID, true)
 		if err != nil {
-			msg := fmt.Sprintf("Can't get backing file info (%s).", err.Error())
-			//	print_Error(msg, logger)
-			return FAIL, fmt.Errorf(msg)
+			return FAIL, err
 		}
-		layerList := return_Snapshots(&jsonBackingFile)
-		if obj.layerUUID == "" {
-			if len(layerList) > 0 {
-				checkoutObj.layer = layerList[len(layerList)-1].uuid
-			} else {
-				checkoutObj.layer = ""
-			}
-		} else {
-			layer, err := return_LayerUUID_from_Snapshots(layerList, obj.layerUUID)
-			if err != nil {
-				//print_Error(err.Error(), logger)
-				return FAIL, err
-			}
-			obj.layerUUID = layer
-		}
+		// jsonBackingFile, err := return_JsonBackingFile(obj.repoPath)
+		// if err != nil {
+		// 	msg := fmt.Sprintf("Can't get backing file info (%s).", err.Error())
+		// 	//	print_Error(msg, logger)
+		// 	return FAIL, fmt.Errorf(msg)
+		// }
+		// layerList := return_Snapshots(&jsonBackingFile)
+		// if obj.layerUUID == "" {
+		// 	if len(layerList) > 0 {
+		// 		checkoutObj.layer = layerList[len(layerList)-1].uuid
+		// 	} else {
+		// 		checkoutObj.layer = ""
+		// 	}
+		// } else {
+		// 	layer, err := return_LayerUUID_from_Snapshots(layerList, obj.layerUUID)
+		// 	if err != nil {
+		// 		//print_Error(err.Error(), logger)
+		// 		return FAIL, err
+		// 	}
+		// 	//obj.layerUUID = layer
+		// 	checkoutObj.layer = layer
+		// }
 	}
 	return volume_checkout(checkoutObj, logger)
 	//volumeInfo := return_VolumeInfo(&jsonVolume)
 	//fmt.Println(jsonBackingFile)
+}
+
+func clone_Http(obj *CloneParams, logger *log.Logger) (int, error) {
+
+	resp, err := http.Get(obj.repoPath)
+	print_Log(fmt.Sprintf("Downloading repo from url: %s", obj.repoPath), logger)
+	if err != nil {
+		msg := fmt.Sprintf("Fetch: %v", err)
+		return FAIL, fmt.Errorf(msg)
+	}
+
+	buffer, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		msg := fmt.Sprintf("Fetch: reading %s: %v\n", obj.repoPath, err)
+		return FAIL, fmt.Errorf(msg)
+	}
+	print_Log(fmt.Sprintf("Read buffer done. (length: %d)", len(buffer)), logger)
+	print_Log("Initializating local hb directory...", logger)
+	_, err = hb_Init()
+	if err != nil {
+		return FAIL, err
+	}
+
+	currentDir, err := return_CurrentDir()
+	if err != nil {
+		print_Log(format_Warning("Can't get pwd."), logger)
+	}
+	targetPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(obj.repoPath)
+	dst, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, 0644)
+	defer dst.Close()
+	if err != nil {
+		return 0, err
+	}
+	_, err = io.Copy(dst, bytes.NewReader(buffer))
+	if err != nil {
+		msg := fmt.Sprintf("Write buffer to file failed. (%v)", err)
+		return FAIL, fmt.Errorf(msg)
+	}
+	if !obj.checkoutFlg {
+		return OK, nil
+	}
+	checkoutObj := CheckoutParams{
+		template: targetPath,
+		output:   path.Base(targetPath),
+	}
+	checkoutObj.layer, err = return_LayerUUID(targetPath, obj.layerUUID, true)
+	if err != nil {
+		return FAIL, err
+	}
+	return volume_checkout(checkoutObj, logger)
+
 }

@@ -107,18 +107,21 @@ func (p OptSelector) init(args []string) (int, error) {
 	} else {
 		msg := "Can't get template name."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 
 	if options.Size == "" {
 		msg := "--size is required."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	sizeI64 := return_Size(options.Size)
 	if sizeI64 < 0 {
 		msg := "Invalid --size set"
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	directPathFlg := false
@@ -159,22 +162,26 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	}
 	os.Args = custom_Args(args, "")
 	args, err := flags.ParseArgs(&options, args[1:])
+
 	if err != nil {
 		return FAIL, err
 	}
 	if len(args) > 0 {
 		msg := "Invalid options"
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Template != "" && options.Volume != "" {
 		msg := "Can't use both -v and -t."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Output != "" && options.Volume != "" {
 		msg := "Can't use both -v and -o."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Volume != "" {
@@ -183,11 +190,13 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		if err != nil {
 			msg := fmt.Sprintf("Can't locate volume_name '%s'", options.Volume)
 			print_Error(msg, p.logger)
+			flags.ParseArgs(&options, []string{"-h"})
 			return FAIL, fmt.Errorf(msg)
 		}
 		if !options.Force {
 			msg := "Need commit the exist volume or use -f"
 			print_Error(msg, p.logger)
+			flags.ParseArgs(&options, []string{"-h"})
 			return FAIL, fmt.Errorf(msg)
 		}
 	}
@@ -213,18 +222,22 @@ func (p OptSelector) commit(args []string) (int, error) {
 	//	os.Args += " <volume name>"
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
+		//	flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, nil
 	}
 	//	fmt.Println(args)
 	if len(args) < 1 {
 		msg := "No volume name specified."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	//fmt.Println(args)
 	if options.CommitMsg == "" {
-		msg := "Use -m to set commit message."
+		msg := "Empty commit message. Use -m to set commit message."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
 	}
 	commitObj := CommitParams{
 		commitMsg: options.CommitMsg, volumeName: args[0],
@@ -243,12 +256,15 @@ func (p OptSelector) clone(args []string) (int, error) {
 	}
 	os.Args = custom_Args(args, "<repo path>")
 	args, err := flags.ParseArgs(&options, args[1:])
+
 	if err != nil {
+		//	flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, err
 	}
 	if len(args) != 1 {
 		msg := "Invalid arguments. Use '-h' for help."
 		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	cloneObj := CloneParams{

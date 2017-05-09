@@ -21,7 +21,7 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 		print_Log(fmt.Sprintf("Reset volume to the last %d commit", resetObj.time+1), logger)
 	} else {
 		print_Log(fmt.Sprint("Reset volume to commit %s", resetObj.uuid), logger)
-		fullUUID, err := return_LayerUUID(volumeInfo.backingFile, resetObj.uuid)
+		fullUUID, err := return_LayerUUID(volumeInfo.backingFile, resetObj.uuid, false)
 		if err != nil {
 			print_Error(err.Error(), logger)
 			return FAIL, err
