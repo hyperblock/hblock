@@ -92,6 +92,6 @@ func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
 		}
 	}
 	//	fmt.Println(backingFile)
-	print_Log(format_Success("Checkout finished."), logger)
+	print_Log(Format_Success("Checkout finished."), logger)
 	return OK, nil
 }

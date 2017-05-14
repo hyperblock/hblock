@@ -76,5 +76,22 @@ type CloneParams struct {
 	repoPath    string
 	checkoutFlg bool
 	layerUUID   string
-	protocol	int
+	protocol    int
+}
+
+type GlobalConfig struct {
+	UserName  string `yaml:"user.name"`
+	UserEmail string `yaml:"user.email"`
+}
+
+type UserInfo struct {
+	name  string
+	email string
+}
+
+type YamlCommitMsg struct {
+	Message string `yaml:"msg"`
+	Name    string `yaml:"name"`
+	Email   string `yaml:"email"`
+	Tag     string `yaml:"tag"`
 }

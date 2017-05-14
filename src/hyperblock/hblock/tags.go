@@ -25,6 +25,11 @@ const (
 	REPO_PATH_SSH   = 2
 )
 
+const USER_INFO_EMPTY = `user.name or user.email is emtpy.
+Use 'hb config --global user.name <user name>' to set user.name
+    'hb config --global user.email <email address>' to set user.email
+`
+
 const DEFALUT_BACKING_FILE_DIR = ".hb"
 
 const OPT_SHOW_USAGE = `Usage:
@@ -34,20 +39,31 @@ const OPT_LOG_USAGE = `Usage:
 	hb log	<backing file>		show commit log of specify backing file.`
 
 const HB_LOG_FORMAT = `
-	%s
-	Date: %s
+%s
+Author: %s <%s>
+Date: %s
 
-		%s
-		
+    %s
+	
 	`
 
 const SHOW_FORMAT = `-------------Backing File Details----------------
-	Name: %s
-	Disk Size: %.2fG (%d bytes)
-	Actual Size: %.2fMB 
-	
-	Snapshots info:
+
+Name: %s
+Disk Size: %.2fG (%d bytes)
+Actual Size: %.2fMB 
+
+Snapshots info:
 	`
+const SNAPSHOT_FORMAT = `
+	Index: %s
+	Create Date: %s
+	UUID: %s
+	Parent-UUID: %s
+	Disk Size: %.2fG (%d bytes)
+	Commit Message:
+%s
+`
 
 const OPT_RESET_USAGE = `Usage:
 	hb reset <volume> [<commit_uuid>] | [HEAD point]	reset <volume> and discard changes.

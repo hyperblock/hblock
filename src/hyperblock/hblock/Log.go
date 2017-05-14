@@ -3,6 +3,8 @@ package hblock
 import (
 	"fmt"
 	"log"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 func volume_commit_history(path string, logger *log.Logger) (int, error) {
@@ -35,10 +37,15 @@ func volume_commit_history(path string, logger *log.Logger) (int, error) {
 	for _, commitInfo := range related_commit {
 		tmp := LogInfo{UUID: commitInfo.uuid, CommitMsg: commitInfo.commit_msg, Date: commitInfo.createDate}
 		//	result = append(result, tmp)
-		msg := fmt.Sprintf(HB_LOG_FORMAT, yellow("commit: "+tmp.UUID), tmp.Date.Format("2006-01-02 15:04:05"), tmp.CommitMsg)
-		result += msg
+		commitInfo := YamlCommitMsg{}
+		err = yaml.Unmarshal([]byte(tmp.CommitMsg), &commitInfo)
+		if err != nil {
+			result += fmt.Sprintf("%s\nparse error.\n\n", yellow("commit: "+tmp.UUID))
+		} else {
+			result += fmt.Sprintf(HB_LOG_FORMAT, yellow("commit: "+tmp.UUID), commitInfo.Name, commitInfo.Email, tmp.Date.Format("2006-01-02 15:04:05"), commitInfo.Message)
+		}
 	}
 	fmt.Println(result)
-	print_Log(format_Success("Done."), logger)
+	print_Log(Format_Success("Done."), logger)
 	return OK, nil
 }

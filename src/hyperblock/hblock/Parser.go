@@ -312,27 +312,29 @@ func (p OptSelector) log(args []string) (int, error) {
 		// Force bool `short:"f" long:"force.\n"`
 		//Last int `short:"l" long:"last" description:"<number> Show the last <number> of commit logs.`
 	}
-	os.Args = custom_Args(args, "")
+	os.Args = custom_Args(args, "<volume name>")
 	if len(args) <= 1 {
 		msg := "Too few arguments."
 		print_Error(msg, p.logger)
-		fmt.Println(OPT_LOG_USAGE)
+		//	fmt.Println(OPT_LOG_USAGE)
 		return FAIL, nil
 	}
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		print_Error(err.Error(), p.logger)
-		fmt.Println(OPT_LOG_USAGE)
+		//print_Error(err.Error(), p.logger)
+		//fmt.Println(OPT_LOG_USAGE)
 		return FAIL, err
 	}
-	fmt.Println(args[0])
+	//fmt.Println(args[0])
 	//volume, err := confirm_BackingFilePath(args[0])
 	volume := return_AbsPath(args[0])
 
 	if volume == "" || !PathFileExists(volume) {
-		print_Error(err.Error(), p.logger)
-		fmt.Println(OPT_LOG_USAGE)
-		return FAIL, err
+		//print_Error(err.Error(), p.logger)
+		//fmt.Println(OPT_LOG_USAGE)
+		msg := fmt.Sprintf("Volume '%s' can not found.", volume)
+		print_Error(msg, p.logger)
+		return FAIL, fmt.Errorf(msg)
 	}
 	return volume_commit_history(volume, p.logger)
 }

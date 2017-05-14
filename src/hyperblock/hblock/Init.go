@@ -31,7 +31,7 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 	g.Close()
 	msg := fmt.Sprintf("Create template '%s' finished.", obj.name)
 
-	print_Log(format_Success(msg), logger)
+	print_Log(Format_Success(msg), logger)
 	print_Log("Creating volume named "+obj.output, logger)
 	checkoutObj := CheckoutParams{layer: "", output: obj.output, template: obj.name}
 	return volume_checkout(checkoutObj, logger)

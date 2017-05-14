@@ -26,7 +26,7 @@ func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	print_Log(format_Success("Clone finished."), logger)
+	print_Log(Format_Success("Clone finished."), logger)
 	return OK, nil
 }
 
@@ -101,32 +101,9 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (int, error) {
 		if err != nil {
 			return FAIL, err
 		}
-		// jsonBackingFile, err := return_JsonBackingFile(obj.repoPath)
-		// if err != nil {
-		// 	msg := fmt.Sprintf("Can't get backing file info (%s).", err.Error())
-		// 	//	print_Error(msg, logger)
-		// 	return FAIL, fmt.Errorf(msg)
-		// }
-		// layerList := return_Snapshots(&jsonBackingFile)
-		// if obj.layerUUID == "" {
-		// 	if len(layerList) > 0 {
-		// 		checkoutObj.layer = layerList[len(layerList)-1].uuid
-		// 	} else {
-		// 		checkoutObj.layer = ""
-		// 	}
-		// } else {
-		// 	layer, err := return_LayerUUID_from_Snapshots(layerList, obj.layerUUID)
-		// 	if err != nil {
-		// 		//print_Error(err.Error(), logger)
-		// 		return FAIL, err
-		// 	}
-		// 	//obj.layerUUID = layer
-		// 	checkoutObj.layer = layer
-		// }
 	}
 	return volume_checkout(checkoutObj, logger)
-	//volumeInfo := return_VolumeInfo(&jsonVolume)
-	//fmt.Println(jsonBackingFile)
+
 }
 
 func clone_Http(obj *CloneParams, logger *log.Logger) (int, error) {
@@ -153,7 +130,7 @@ func clone_Http(obj *CloneParams, logger *log.Logger) (int, error) {
 
 	currentDir, err := return_CurrentDir()
 	if err != nil {
-		print_Log(format_Warning("Can't get pwd."), logger)
+		print_Log(Format_Warning("Can't get pwd."), logger)
 	}
 	targetPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(obj.repoPath)
 	dst, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, 0644)

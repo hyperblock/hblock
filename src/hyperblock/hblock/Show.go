@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 )
 
 type ShowDetail struct {
@@ -12,6 +13,15 @@ type ShowDetail struct {
 	virtualSize int64
 	actualSize  int64
 	snapshots   []SnapShot
+}
+
+func format_commitMsg(msg string) string {
+
+	contents := strings.Split(msg, "\n")
+	for i := 0; i < len(contents); i++ {
+		contents[i] = "\t    " + contents[i]
+	}
+	return strings.Join(contents, "\n")
 }
 
 func show_template(image string, logger *log.Logger) (int, error) {
@@ -38,18 +48,11 @@ func show_template(image string, logger *log.Logger) (int, error) {
 	)
 	snapshotMsg := ""
 	for _, item := range detail.snapshots {
-		info := fmt.Sprintf(`
-		Index: %s
-		Create Date: %s
-		UUID: %s
-		Parent-UUID: %s
-		Disk Size: %.2fG (%d bytes)
-		Commit Message: %s
-		`, item.id, item.createDate.Format("2006-01-02 15:04:05"), item.uuid, item.parent_uuid, float64(item.diskSize>>20)/1024, item.diskSize, item.commit_msg)
+		info := fmt.Sprintf(SNAPSHOT_FORMAT, item.id, item.createDate.Format("2006-01-02 15:04:05"), item.uuid, item.parent_uuid, float64(item.diskSize>>20)/1024, item.diskSize, format_commitMsg(item.commit_msg))
 		snapshotMsg += info
 	}
 	print_Log(msg+snapshotMsg, logger)
-	print_Log(format_Success("Done."), logger)
+	print_Log(Format_Success("Done."), logger)
 	//	fmt.Println(snapshotList)
 	// t := time.Unix(templateInfo.Snapshots[0].DateSec, templateInfo.Snapshots[0].DateNSec)
 	// //	t = t.Add(dateSec)

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ func print_Log(msg string, logger *log.Logger) {
 		return
 	}
 	if msg[0] != 27 {
-		msg = format_Info(msg)
+		msg = Format_Info(msg)
 	}
 	fmt.Println(msg)
 	if logger != nil {
@@ -32,7 +33,7 @@ func print_Error(msg string, logger *log.Logger) {
 	if len(msg) == 0 {
 		return
 	}
-	msg = format_Error(msg)
+	msg = Format_Error(msg)
 	fmt.Println(msg)
 	if logger != nil {
 		msg = msg[15:]
@@ -45,7 +46,7 @@ func print_Panic(msg string, logger *log.Logger) {
 	if len(msg) == 0 {
 		return
 	}
-	msg = format_Error(msg)
+	msg = Format_Error(msg)
 	fmt.Println(msg)
 	if logger != nil {
 		msg = msg[15:]
@@ -58,7 +59,7 @@ func print_Fatal(msg string, logger *log.Logger) {
 	if len(msg) == 0 {
 		return
 	}
-	msg = format_Error(msg)
+	msg = Format_Error(msg)
 	fmt.Println(msg)
 	if logger != nil {
 		msg = msg[15:]
@@ -129,6 +130,19 @@ func return_TemplateDir() (string, error) {
 	ret := string(path[:len(path)-1]) + "/" + DEFALUT_BACKING_FILE_DIR
 	print_Trace("template dir: " + ret)
 	return ret, nil
+}
+
+func return_hb_ConfigPath() string {
+
+	usr, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	hb_configPath := usr.HomeDir + "/.hb/config.yaml"
+	if PathFileExists(hb_configPath) {
+		return hb_configPath
+	}
+	return ""
 }
 
 func confirm_BackingFilePath(imgPath string) (string, error) {
@@ -265,28 +279,6 @@ func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
 	return volInfo
 }
 
-// func return_LayerUUID_from_Snapshots(snapshots []SnapShot, layerPrefix string) (string, error) {
-
-// 	cnt := 0
-// 	ret := ""
-// 	for _, item := range snapshots {
-// 		uuid := item.uuid
-// 		if strings.HasPrefix(uuid, layerPrefix) {
-// 			cnt++
-// 			ret = uuid
-// 		}
-// 	}
-// 	if cnt == 0 {
-// 		return "", fmt.Errorf(
-// 			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
-// 	}
-// 	if cnt > 1 {
-// 		return "", fmt.Errorf(
-// 			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
-// 	}
-// 	return ret, nil
-// }
-
 func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast bool) (string, error) {
 
 	if layerPrefix == "" && !returnLast {
@@ -393,27 +385,27 @@ func hb_Init() (int, error) {
 }
 
 // see complete color rules in document in https://en.wikipedia.org/wiki/ANSI_escape_code#cite_note-ecma48-13
-func format_Trace(format string, a ...interface{}) string {
+func Format_Trace(format string, a ...interface{}) string {
 	prefix := yellow(trac)
 	return fmt.Sprint(formatLog(prefix), fmt.Sprintf(format, a...))
 }
 
-func format_Info(format string, a ...interface{}) string {
+func Format_Info(format string, a ...interface{}) string {
 	prefix := blue(info)
 	return fmt.Sprint(formatLog(prefix), fmt.Sprintf(format, a...))
 }
 
-func format_Success(format string, a ...interface{}) string {
+func Format_Success(format string, a ...interface{}) string {
 	prefix := green(succ)
 	return fmt.Sprint(formatLog(prefix), fmt.Sprintf(format, a...))
 }
 
-func format_Warning(format string, a ...interface{}) string {
+func Format_Warning(format string, a ...interface{}) string {
 	prefix := magenta(warn)
 	return fmt.Sprint(formatLog(prefix), fmt.Sprintf(format, a...))
 }
 
-func format_Error(format string, a ...interface{}) string {
+func Format_Error(format string, a ...interface{}) string {
 	prefix := red(erro)
 	return fmt.Sprint(formatLog(prefix), fmt.Sprintf(format, a...))
 }
