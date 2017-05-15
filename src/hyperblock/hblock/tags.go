@@ -25,6 +25,11 @@ const (
 	REPO_PATH_SSH   = 2
 )
 
+const (
+	CONFIG_G_USER_NAME  = "user.name"
+	CONFIG_G_USER_EMAIL = "user.email"
+)
+
 const USER_INFO_EMPTY = `user.name or user.email is emtpy.
 Use 'hb config --global user.name <user name>' to set user.name
     'hb config --global user.email <email address>' to set user.email
@@ -55,7 +60,7 @@ Actual Size: %.2fMB
 
 Snapshots info:
 	`
-const SNAPSHOT_FORMAT = `
+const LAYER_INFO_FORMAT = `
 	Index: %s
 	Create Date: %s
 	UUID: %s

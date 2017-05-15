@@ -21,7 +21,7 @@ type JsonBackingFile struct {
 	Filename    string
 	ActualSize  int64 `json:"actual-size"`
 	VirtualSize int64 `json:"virtual-size"`
-	Snapshots   []struct {
+	Layers      []struct {
 		Name     string
 		Id       string
 		DiskSize int64 `json:"disk-size"`
@@ -30,7 +30,7 @@ type JsonBackingFile struct {
 	}
 }
 
-type SnapShot struct {
+type Layer struct {
 	id          string
 	uuid        string
 	diskSize    int64
@@ -57,7 +57,8 @@ type VolumeInfo struct {
 type CommitParams struct {
 	commitMsg  string
 	volumeName string
-	snapshot   string
+	layerUUID  string
+	genUUID    bool
 }
 
 type LogInfo struct {

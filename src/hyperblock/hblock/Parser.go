@@ -30,7 +30,7 @@ func Create(_log *log.Logger) *OptSelector {
 // SendCommand : Execute args, call this after Create()
 func (p OptSelector) SendCommand(args []string) (int, error) {
 
-	//args = strings.Split("init test0.img --size 20G", " ")
+	//args = strings.Split("config --global user.name yyf", " ")
 	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
 		print_Error("invalid option.", p.logger)
@@ -200,6 +200,12 @@ func (p OptSelector) checkout(args []string) (int, error) {
 			return FAIL, fmt.Errorf(msg)
 		}
 	}
+	if options.Template != "" && options.Output == "" {
+		msg := "use -o <output_volume_path> to set output volume file. "
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
 	checkoutObj := CheckoutParams{
 		volume:   options.Volume,
 		layer:    options.Layer,
@@ -217,6 +223,7 @@ func (p OptSelector) commit(args []string) (int, error) {
 	//return FAIL, fmt.Errorf("Option unfinished.")
 	var options struct {
 		CommitMsg string `short:"m" description:"commit message"`
+		Uuid      string `long:"uuid" description:"set uuid by manual instead of auto-generate.`
 	}
 	os.Args = custom_Args(args, "<volume name>")
 	//	os.Args += " <volume name>"
@@ -240,8 +247,9 @@ func (p OptSelector) commit(args []string) (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	commitObj := CommitParams{
-		commitMsg: options.CommitMsg, volumeName: args[0],
+		commitMsg: options.CommitMsg, volumeName: args[0], layerUUID: options.Uuid,
 	}
+	commitObj.genUUID = commitObj.layerUUID == ""
 	return volume_commit(commitObj, p.logger)
 
 }
@@ -424,9 +432,77 @@ func (p OptSelector) tag(args []string) (int, error) {
 
 func (p OptSelector) config(args []string) (int, error) {
 
-	p.logger.Println("config", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	var options struct {
+		Global string `long:"global" description:"[user.name|user.email] set global configuration."`
+		Get    string `long:"get" description:"<name>\tGet value : <name>"`
+	}
+	os.Args = custom_Args(args, "")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, err
+	}
+	if options.Global != "" {
+		if len(args) < 1 {
+			msg := "Too few arguments."
+			print_Error(msg, p.logger)
+			return FAIL, fmt.Errorf(msg)
+		}
+		configObj, err := LoadConfig(p.logger)
+		if err != nil {
+			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
+			print_Error(msg, p.logger)
+			return FAIL, err
+		}
+		if options.Global == "user.name" {
+			configObj.UserName = args[0]
+			print_Log(fmt.Sprintf("Set user.name as '%s'", configObj.UserName), p.logger)
+			err = WriteConfig(&configObj, p.logger)
+			if err != nil {
+				msg := fmt.Sprintf("Write config failed. (%s)", err.Error())
+				return FAIL, fmt.Errorf(msg)
+			}
+		} else if options.Global == "user.email" {
+			configObj.UserEmail = args[0]
+			print_Log(fmt.Sprintf("Set user.email as '%s'", configObj.UserEmail), p.logger)
+			err = WriteConfig(&configObj, p.logger)
+			if err != nil {
+				msg := fmt.Sprintf("Write config failed. (%s)", err.Error())
+				return FAIL, fmt.Errorf(msg)
+			}
+		} else {
+			msg := "unknow option."
+			print_Error(msg, p.logger)
+			flags.ParseArgs(&options, []string{"-h"})
+			return FAIL, fmt.Errorf(msg)
+		}
+		msg := Format_Success("Done.")
+		print_Log(msg, p.logger)
+		return OK, nil
+	} else if options.Get != "" {
+		configObj, err := LoadConfig(p.logger)
+		if err != nil {
+			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
+			print_Error(msg, p.logger)
+			return FAIL, err
+		}
+		value, err := return_ConfigValue(&configObj, options.Get)
+		if err != nil {
+			msg := fmt.Sprintf("Load value of '%s' failed. (%s)", options.Get, err.Error())
+			print_Error(msg, p.logger)
+			return FAIL, err
+		}
+		msg := Format_Success(fmt.Sprintf("%s: %v", options.Get, value))
+		print_Log(msg, p.logger)
+		return OK, nil
+	} else {
+		msg := "Invalid option."
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	return FAIL, nil
+	//p.logger.Println("config", args)
+
 }
 
 func (p OptSelector) Sh(args []string) (int, error) {

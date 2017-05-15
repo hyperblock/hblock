@@ -34,9 +34,13 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		print_Error(msg, logger)
 		return FAIL, fmt.Errorf(msg)
 	}
-	obj.snapshot = fmt.Sprintf("%s", uuid.NewV4())
-	print_Log("Generate uuid: "+obj.snapshot, logger)
-	commitArgs := []string{"commit", "-m", string(byteCommitInfo), "-s", obj.snapshot, obj.volumeName}
+	if obj.genUUID {
+		obj.layerUUID = fmt.Sprintf("%s", uuid.NewV4())
+		print_Log("Generate uuid: "+obj.layerUUID, logger)
+	} else {
+		print_Log("UUID set by manual: "+obj.layerUUID, logger)
+	}
+	commitArgs := []string{"commit", "-m", string(byteCommitInfo), "-s", obj.layerUUID, obj.volumeName}
 	commitCmd := exec.Command("qcow2-img", commitArgs[0:]...)
 	print_Log("qcow2-img "+strings.Join(commitArgs, " "), logger)
 	result, err := commitCmd.Output()

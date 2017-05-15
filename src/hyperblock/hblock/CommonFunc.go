@@ -234,20 +234,20 @@ func return_JsonBackingFile(backingFilePath string) (JsonBackingFile, error) {
 	return jsonBackingFile, nil
 }
 
-func return_Snapshots(jsonBackingFile *JsonBackingFile) []SnapShot {
+func return_LayerList(jsonBackingFile *JsonBackingFile) []Layer {
 
-	list := jsonBackingFile.Snapshots
-	ret := []SnapShot{}
+	list := jsonBackingFile.Layers
+	ret := []Layer{}
 	for _, item := range list {
-		snapShot := SnapShot{
+		layer := Layer{
 			id: item.Id, diskSize: item.DiskSize, createDate: time.Unix(item.DateSec, item.DateNSec),
 		}
 		nameInfo := strings.Split(item.Name, ",")
-		snapShot.uuid = nameInfo[0]
-		snapShot.parent_uuid = nameInfo[1]
-		snapShot.commit_msg = nameInfo[2]
-		print_Trace(snapShot)
-		ret = append(ret, snapShot)
+		layer.uuid = nameInfo[0]
+		layer.parent_uuid = nameInfo[1]
+		layer.commit_msg = nameInfo[2]
+		print_Trace(layer)
+		ret = append(ret, layer)
 	}
 	return ret
 }
@@ -289,20 +289,20 @@ func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast boo
 	if err != nil {
 		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
 	}
-	snapshots := return_Snapshots(&jsonBackingFile)
-	if len(snapshots) == 0 {
+	layers := return_LayerList(&jsonBackingFile)
+	if len(layers) == 0 {
 		return "", fmt.Errorf("There're no any layer in backing file.")
 	}
 	if returnLast {
 		if layerPrefix == "" {
-			return snapshots[len(snapshots)-1].uuid, nil
+			return layers[len(layers)-1].uuid, nil
 		} else {
 			return "", fmt.Errorf("'returnLast' flag is true but LayerPrefix is not null.")
 		}
 	}
 	cnt := 0
 	ret := ""
-	for _, item := range snapshots {
+	for _, item := range layers {
 		uuid := item.uuid
 		if strings.HasPrefix(uuid, layerPrefix) {
 			cnt++
@@ -318,13 +318,12 @@ func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast boo
 			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
 	}
 	return ret, nil
-	//	return return_LayerUUID_from_Snapshots(snapshots, layerPrefix)
 }
 
-func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []SnapShot {
+func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []Layer {
 
-	commitList := return_Snapshots(jsonBackingFile)
-	ret := []SnapShot{}
+	commitList := return_LayerList(jsonBackingFile)
+	ret := []Layer{}
 
 	for i := len(commitList) - 1; i >= 0; i-- {
 		if commitList[i].uuid != p {

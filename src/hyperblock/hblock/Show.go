@@ -12,7 +12,7 @@ type ShowDetail struct {
 	//	createDate  time.Time
 	virtualSize int64
 	actualSize  int64
-	snapshots   []SnapShot
+	layers      []Layer
 }
 
 func format_commitMsg(msg string) string {
@@ -33,31 +33,33 @@ func show_template(image string, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	print_Log("Done", logger)
-	snapshotsList := return_Snapshots(&jsonBackingFile)
+	layerList := return_LayerList(&jsonBackingFile)
 	detail := ShowDetail{
 		name: filepath.Base(jsonBackingFile.Filename),
 		//createDate:  time.Unix(jsonBackingFile.Snapshots[0].DateSec, jsonBackingFile.Snapshots[0].DateNSec),
 		virtualSize: jsonBackingFile.VirtualSize,
 		actualSize:  jsonBackingFile.ActualSize,
-		snapshots:   snapshotsList,
+		layers:      layerList,
 	}
 	msg := fmt.Sprintf(
 		SHOW_FORMAT, detail.name,
 		// detail.createDate.Format("2006-01-02 15:04:05"),
 		float64(detail.virtualSize>>20)/1024, detail.virtualSize, float64(detail.actualSize>>10)/1024,
 	)
-	snapshotMsg := ""
-	for _, item := range detail.snapshots {
-		info := fmt.Sprintf(SNAPSHOT_FORMAT, item.id, item.createDate.Format("2006-01-02 15:04:05"), item.uuid, item.parent_uuid, float64(item.diskSize>>20)/1024, item.diskSize, format_commitMsg(item.commit_msg))
-		snapshotMsg += info
+	layerInfo := ""
+	for _, item := range detail.layers {
+		info := fmt.Sprintf(
+			LAYER_INFO_FORMAT,
+			item.id,
+			item.createDate.Format("2006-01-02 15:04:05"),
+			item.uuid,
+			item.parent_uuid,
+			float64(item.diskSize>>20)/1024,
+			item.diskSize,
+			format_commitMsg(item.commit_msg))
+		layerInfo += info
 	}
-	print_Log(msg+snapshotMsg, logger)
+	print_Log(msg+layerInfo, logger)
 	print_Log(Format_Success("Done."), logger)
-	//	fmt.Println(snapshotList)
-	// t := time.Unix(templateInfo.Snapshots[0].DateSec, templateInfo.Snapshots[0].DateNSec)
-	// //	t = t.Add(dateSec)
-	// fmt.Println(t.Format("2006-01-02 15:04:05"))
-
-	// fmt.Printf("%.2fG (%d bytes)\n", float64(templateInfo.ActualSize>>20)/1024, templateInfo.ActualSize)
 	return OK, nil
 }
