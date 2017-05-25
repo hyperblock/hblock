@@ -30,7 +30,7 @@ func Create(_log *log.Logger) *OptSelector {
 // SendCommand : Execute args, call this after Create()
 func (p OptSelector) SendCommand(args []string) (int, error) {
 
-	//args = strings.Split("config --global user.name yyf", " ")
+	//args = strings.Split("commit image1 -m \"layer0\" ", " ")
 	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
 		print_Error("invalid option.", p.logger)
@@ -41,6 +41,8 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 	switch option {
 	case "init":
 		return p.init(args)
+	case "branch":
+		return p.branch(args)
 	case "checkout":
 		return p.checkout(args)
 	case "commit":
@@ -147,16 +149,63 @@ func (p OptSelector) init(args []string) (int, error) {
 	return create_empty_template(obj, p.logger)
 }
 
+func (p OptSelector) branch(args []string) (int, error) {
+
+	var options struct {
+		List bool ` long:"list" description:"list branch names.\n"`
+
+		All bool `short:"a" long:"all" description:"list both remote-tracking and local branches.\n"`
+
+		// Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+
+		// Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+
+		// Force bool `short:"f" long:"force.\n"`
+	}
+	os.Args = custom_Args(args, "<volume name> highlight last commit branch head. ")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, err
+	}
+	if len(args) < 1 {
+		msg := "Too few arguments. Need specify <volume name>"
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	if !(options.List || options.All) {
+		// msg := "Too few arguments."
+		// print_Error(msg, p.logger)
+		// flags.ParseArgs(&options, []string{"-h"})
+		// return FAIL, fmt.Errorf(msg)
+		options.List = true
+	}
+	volume := return_AbsPath(args[0])
+	if !PathFileExists(volume) {
+		msg := fmt.Sprintf("Volume '%s' not found.", volume)
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	branchParams := BranchParams{
+		volumePath: volume, list: options.List, show_all: options.All,
+	}
+	return show_Branch_Info(&branchParams, p.logger)
+
+}
+
 func (p OptSelector) checkout(args []string) (int, error) {
 
 	var options struct {
-		Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
+		Volume string `short:"v" long:"vol" description:"<volume_name> <layer_uuid | branch_name>\tSpecify the volume name which needs to be update(restore).\n"`
 
-		Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
+		Template string `short:"t" long:"template" description:"<template_name> <layer_uuid | branch_name>\t Create a new volume from template.\n"`
 
-		Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+		//Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
 
-		Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+		Output string `short:"o" long:"output" description:"<output_volume_path> [required if use \\'-t\\'] .\n"`
+
+		Branch string `short:"b" description:"<branch> <volume_name> \tCreate a new branch of specified volume.\n"`
 
 		Force bool `short:"f" long:"force.\n"`
 	}
@@ -166,8 +215,8 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	if err != nil {
 		return FAIL, err
 	}
-	if len(args) > 0 {
-		msg := "Invalid options"
+	if len(args) < 1 {
+		msg := "Too few arguments"
 		print_Error(msg, p.logger)
 		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
@@ -178,12 +227,25 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
-	if options.Output != "" && options.Volume != "" {
-		msg := "Can't use both -v and -o."
+	if options.Branch != "" && options.Template != "" {
+		msg := "Can't use both -t and -b."
 		print_Error(msg, p.logger)
 		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
+	if options.Volume != "" && options.Branch != "" {
+		msg := "Can't use both -v and -b."
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	if options.Branch == "" && (options.Template != "" && options.Output == "") {
+		msg := "use -o <output_volume_path> to set output volume file. "
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+
 	if options.Volume != "" {
 		options.Volume = return_AbsPath(options.Volume)
 		_, err := os.Stat(options.Volume)
@@ -193,27 +255,34 @@ func (p OptSelector) checkout(args []string) (int, error) {
 			flags.ParseArgs(&options, []string{"-h"})
 			return FAIL, fmt.Errorf(msg)
 		}
-		if !options.Force {
-			msg := "Need commit the exist volume or use -f"
-			print_Error(msg, p.logger)
-			flags.ParseArgs(&options, []string{"-h"})
-			return FAIL, fmt.Errorf(msg)
+		if options.Output == "" {
+			if !options.Force {
+				msg := "Need use -o to set the checkout volume name or use -f to reset current volume."
+				print_Error(msg, p.logger)
+				flags.ParseArgs(&options, []string{"-h"})
+				return FAIL, fmt.Errorf(msg)
+			}
+			options.Output = options.Volume
 		}
 	}
-	if options.Template != "" && options.Output == "" {
-		msg := "use -o <output_volume_path> to set output volume file. "
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
-		return FAIL, fmt.Errorf(msg)
-	}
-	checkoutObj := CheckoutParams{
-		volume:   options.Volume,
-		layer:    options.Layer,
-		output:   options.Output,
-		template: options.Template,
+	if options.Branch != "" {
+		options.Volume = return_AbsPath(args[0])
 	}
 
-	return volume_checkout(checkoutObj, p.logger)
+	checkoutObj := CheckoutParams{
+		volume: options.Volume,
+		//	layer:    args[0],
+		output:   options.Output,
+		template: options.Template,
+		//	branch:   options.Branch,
+	}
+	if options.Branch != "" {
+		checkoutObj.branch = options.Branch
+	} else {
+		checkoutObj.layer = args[0]
+	}
+
+	return volume_checkout(&checkoutObj, p.logger)
 }
 
 func (p OptSelector) commit(args []string) (int, error) {
@@ -223,7 +292,7 @@ func (p OptSelector) commit(args []string) (int, error) {
 	//return FAIL, fmt.Errorf("Option unfinished.")
 	var options struct {
 		CommitMsg string `short:"m" description:"commit message"`
-		Uuid      string `long:"uuid" description:"set uuid by manual instead of auto-generate.`
+		UUID      string `long:"uuid" description:"set uuid by manual instead of auto-generate."`
 	}
 	os.Args = custom_Args(args, "<volume name>")
 	//	os.Args += " <volume name>"
@@ -247,7 +316,7 @@ func (p OptSelector) commit(args []string) (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	commitObj := CommitParams{
-		commitMsg: options.CommitMsg, volumeName: args[0], layerUUID: options.Uuid,
+		commitMsg: options.CommitMsg, volumeName: args[0], layerUUID: options.UUID,
 	}
 	commitObj.genUUID = commitObj.layerUUID == ""
 	return volume_commit(commitObj, p.logger)
@@ -447,7 +516,10 @@ func (p OptSelector) config(args []string) (int, error) {
 			print_Error(msg, p.logger)
 			return FAIL, fmt.Errorf(msg)
 		}
-		configObj, err := LoadConfig(p.logger)
+		configObj := GlobalConfig{}
+		configPath := return_hb_ConfigPath()
+		err := LoadConfig(&configObj, &configPath)
+		//configObj := stConfigObj.(GlobalConfig)
 		if err != nil {
 			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
 			print_Error(msg, p.logger)
@@ -456,7 +528,7 @@ func (p OptSelector) config(args []string) (int, error) {
 		if options.Global == "user.name" {
 			configObj.UserName = args[0]
 			print_Log(fmt.Sprintf("Set user.name as '%s'", configObj.UserName), p.logger)
-			err = WriteConfig(&configObj, p.logger)
+			err = WriteConfig(&configObj, &configPath)
 			if err != nil {
 				msg := fmt.Sprintf("Write config failed. (%s)", err.Error())
 				return FAIL, fmt.Errorf(msg)
@@ -464,7 +536,7 @@ func (p OptSelector) config(args []string) (int, error) {
 		} else if options.Global == "user.email" {
 			configObj.UserEmail = args[0]
 			print_Log(fmt.Sprintf("Set user.email as '%s'", configObj.UserEmail), p.logger)
-			err = WriteConfig(&configObj, p.logger)
+			err = WriteConfig(&configObj, &configPath)
 			if err != nil {
 				msg := fmt.Sprintf("Write config failed. (%s)", err.Error())
 				return FAIL, fmt.Errorf(msg)
@@ -479,18 +551,22 @@ func (p OptSelector) config(args []string) (int, error) {
 		print_Log(msg, p.logger)
 		return OK, nil
 	} else if options.Get != "" {
-		configObj, err := LoadConfig(p.logger)
+		configObj := GlobalConfig{}
+		configPath := return_hb_ConfigPath()
+		err := LoadConfig(&configObj, &configPath)
 		if err != nil {
 			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
 			print_Error(msg, p.logger)
 			return FAIL, err
 		}
-		value, err := return_ConfigValue(&configObj, options.Get)
+		interface_value, err := return_ConfigValue(&configObj, options.Get)
 		if err != nil {
 			msg := fmt.Sprintf("Load value of '%s' failed. (%s)", options.Get, err.Error())
 			print_Error(msg, p.logger)
 			return FAIL, err
 		}
+		value := interface_value.(GlobalConfig)
+
 		msg := Format_Success(fmt.Sprintf("%s: %v", options.Get, value))
 		print_Log(msg, p.logger)
 		return OK, nil

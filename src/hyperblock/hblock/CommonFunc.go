@@ -8,9 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"path"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 func print_Log(msg string, logger *log.Logger) {
@@ -69,7 +74,7 @@ func print_Fatal(msg string, logger *log.Logger) {
 
 func print_Trace(a ...interface{}) {
 
-	// msg := format_Trace(fmt.Sprint(a))
+	// msg := Format_Trace(fmt.Sprint(a))
 	// fmt.Println(msg)
 }
 
@@ -116,13 +121,6 @@ func return_CurrentDir() (string, error) {
 
 func return_TemplateDir() (string, error) {
 
-	// ret := os.Getenv("HBLOCK_TEMPLATE_DIR")
-	// //	fmt.Println("env", fmt.Sprintf("[%s]", ret))
-	// if ret == "" {
-	// 	msg := format_Warning("env HBLOCK_TEMPLATE_DIR not set. use default dir '/var/hyperblock'")
-	// 	return "/var/hyperblock", fmt.Errorf(msg)
-	// }
-	// return ret, nil
 	path, err := exec.Command("pwd").Output()
 	if err != nil {
 		return "", err
@@ -145,12 +143,28 @@ func return_hb_ConfigPath() string {
 	return ""
 }
 
+func return_Volume_ConfigPath(volumeName *string) string {
+
+	if PathFileExists(*volumeName) == false {
+		dir, _ := return_CurrentDir()
+		if dir == "" {
+			return ""
+		}
+		ret := fmt.Sprintf("%s.v_%s.yaml", dir, *volumeName)
+		return ret
+	} else {
+		ret := fmt.Sprintf("%s/.v_%s.yaml", path.Dir(*volumeName), path.Base(*volumeName))
+		return ret
+	}
+
+}
+
 func confirm_BackingFilePath(imgPath string) (string, error) {
 
 	if (len(imgPath) > 0) && (imgPath[0] == '/') {
 		_, err := os.Stat(imgPath)
 		if err != nil {
-			return "", fmt.Errorf("Invalid template path '%s'", imgPath)
+			return "", fmt.Errorf("Invalid backing file path '%s'", imgPath)
 		}
 		return imgPath, nil
 	}
@@ -268,7 +282,7 @@ func return_JsonVolume(volumePath string) (JsonVolume, error) {
 	return jsonVolume, nil
 }
 
-func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
+func convert_to_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
 
 	volInfo := VolumeInfo{
 		fileName: jsonVolume.Filename, actualSize: jsonVolume.ActualSize, virtualSize: jsonVolume.VirutalSize,
@@ -279,6 +293,39 @@ func return_VolumeInfo(jsonVolume *JsonVolume) VolumeInfo {
 	return volInfo
 }
 
+func return_VolumeInfo(volumePath *string) (VolumeInfo, error) {
+
+	jsonVolume, err := return_JsonVolume(*volumePath)
+	if err != nil {
+		return VolumeInfo{}, fmt.Errorf(
+			fmt.Sprintf("Get volumeInfo failed ( %s )", err.Error()))
+	}
+	volInfo := VolumeInfo{
+		fileName: jsonVolume.Filename, actualSize: jsonVolume.ActualSize, virtualSize: jsonVolume.VirutalSize,
+	}
+	args := strings.Split(jsonVolume.BackingFile, "?")
+	volInfo.backingFile = get_StringAfter(args[0], "qcow2://")
+	volInfo.layer = get_StringAfter(args[1], "layer=")
+	return volInfo, nil
+}
+
+func return_Volume_BackingFile(volumePath *string) (string, error) {
+
+	volumeInfo, err := return_VolumeInfo(volumePath)
+	if err != nil {
+		return "", err
+	}
+	backingFilePath, err := confirm_BackingFilePath(volumeInfo.backingFile)
+	if err != nil {
+		return "", err
+	}
+	if backingFilePath == "" {
+		return "", fmt.Errorf(
+			fmt.Sprintf("Can't confirm backing file full path."))
+	}
+	return backingFilePath, nil
+}
+
 func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast bool) (string, error) {
 
 	if layerPrefix == "" && !returnLast {
@@ -287,17 +334,20 @@ func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast boo
 	}
 	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
 	if err != nil {
-		return "", fmt.Errorf("Invalid layer_uuid or backing file path.")
+		msg := "Invalid layer_uuid or backing file path."
+		return "", fmt.Errorf(msg)
 	}
 	layers := return_LayerList(&jsonBackingFile)
 	if len(layers) == 0 {
-		return "", fmt.Errorf("There're no any layer in backing file.")
+		msg := "There're no any layer in backing file."
+		return "", fmt.Errorf(msg)
 	}
 	if returnLast {
 		if layerPrefix == "" {
 			return layers[len(layers)-1].uuid, nil
 		} else {
-			return "", fmt.Errorf("'returnLast' flag is true but LayerPrefix is not null.")
+			msg := "'returnLast' flag is true but LayerPrefix is not null."
+			return "", fmt.Errorf(msg)
 		}
 	}
 	cnt := 0
@@ -309,15 +359,30 @@ func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast boo
 			ret = uuid
 		}
 	}
-	if cnt == 0 {
-		return "", fmt.Errorf(
-			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
-	}
+
 	if cnt > 1 {
 		return "", fmt.Errorf(
 			fmt.Sprintf("There are more than one layers have prefix '%s'", layerPrefix))
 	}
+	if cnt == 0 {
+		backingFileConfig := backingFilePath + ".yaml"
+		yamlConfig := YamlBackingFileConfig{}
+		err = LoadConfig(&yamlConfig, &backingFileConfig)
+		if err != nil {
+			msg := fmt.Sprintf("Load backing file config file error. ( %s )", err.Error())
+			return "", fmt.Errorf(msg)
+		}
+		branchList := yamlConfig.Branch
+		for _, item := range branchList {
+			if item.Name == layerPrefix {
+				return item.Head, nil
+			}
+		}
+		return "", fmt.Errorf(
+			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
+	}
 	return ret, nil
+
 }
 
 func return_commit_history(jsonBackingFile *JsonBackingFile, p string) []Layer {
@@ -381,6 +446,115 @@ func hb_Init() (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	return OK, nil
+}
+
+func return_ConfigValue(configObj interface{}, tag string) (interface{}, error) {
+
+	v := reflect.ValueOf(configObj).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		fieldInfo := v.Type().Field(i)
+		fieldTag := get_StringBefore(get_StringAfter(string(fieldInfo.Tag), "\""), "\"")
+		if fieldTag == tag {
+			return v.Field(i), nil
+		}
+		//	maps[fieldInfo.Name] = fieldInfo
+		//	fmt.Println(d)
+		//fmt.Println(tag)
+	}
+	return nil, fmt.Errorf("Tag not found.")
+}
+
+func LoadConfig(ret interface{}, configPath *string) error {
+
+	//	print_Log("Loading configuration...", logger)
+	//configPath := return_hb_ConfigPath()
+	//ret := GlobalConfig{}
+	fileInfo, err := os.Stat(*configPath)
+	if err != nil {
+		return err
+	}
+	buffer := make([]byte, fileInfo.Size())
+	f, err := os.Open(*configPath)
+	if err != nil {
+		//msg:="Open file error. o"
+		return err
+	}
+	defer f.Close()
+	_, err = f.Read(buffer)
+	if err != nil {
+		//	fmt.Println(err.Error())
+		return err
+	}
+	// fmt.Println("hahahahah")
+
+	switch ret := ret.(type) {
+	case *YamlVolumeConfig:
+		err = yaml.Unmarshal(buffer, &ret)
+	case *YamlBackingFileConfig:
+		err = yaml.Unmarshal(buffer, &ret)
+	case *GlobalConfig:
+		err = yaml.Unmarshal(buffer, &ret)
+
+	default:
+		err = fmt.Errorf("Unassert type: %s", reflect.TypeOf(ret))
+	}
+	if err != nil {
+		msg := fmt.Sprintf("Config unmarshal failed. ( %s )", err.Error())
+		return fmt.Errorf(msg)
+	}
+
+	//	return ret, nil
+	return nil
+}
+
+//write global config or backing_file config to yaml file
+func WriteConfig(configObj interface{}, configPath *string) error {
+
+	// buffer := []byte{}
+	// var err error
+	// switch configObj := configObj.(type) {
+	// case *YamlVolumeConfig:
+	// 	buffer, err = yaml.Marshal(configObj)
+	// case *YamlBackingFileConfig:
+	// 	buffer, err = yaml.Marshal(configObj)
+	// case *GlobalConfig:
+	// 	buffer, err = yaml.Marshal(configObj)
+	// default:
+	// 	err = fmt.Errorf("Unassert type: %s", reflect.TypeOf(configObj))
+	// 	return err
+	// }
+
+	//	print_Log("Updating configuration...", logger)
+	tmpPath := *configPath + ".bak"
+
+	buffer, err := yaml.Marshal(configObj)
+	if err != nil {
+		return err
+	}
+	//configPath := return_hb_ConfigPath()
+	file, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(buffer)
+	if err != nil {
+		file.Close()
+		return err
+	}
+	file.Close()
+	if PathFileExists(*configPath) {
+		err = os.Remove(*configPath)
+		if err != nil {
+			msg := fmt.Sprintf("Remove old config failed ( %s )", err.Error())
+			return fmt.Errorf(msg)
+		}
+	}
+	err = os.Rename(tmpPath, *configPath)
+	if err != nil {
+		msg := fmt.Sprintf("Replace old config failed ( %s )", err.Error())
+		return fmt.Errorf(msg)
+	}
+	return nil
 }
 
 // see complete color rules in document in https://en.wikipedia.org/wiki/ANSI_escape_code#cite_note-ecma48-13

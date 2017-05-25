@@ -48,7 +48,53 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	print_Log(Format_Success(string(result)), logger)
+
+	print_Log(string(result), logger)
+	print_Log("Update branch info.", logger)
+	volumeConfigPath := return_Volume_ConfigPath(&obj.volumeName)
+	if !PathFileExists(volumeConfigPath) {
+		msg := fmt.Sprintf("Volume config file '%s' can not found.", volumeConfigPath)
+		print_Error(msg, logger)
+		return FAIL, fmt.Errorf(msg)
+	}
+	yamlVolumeConfig := YamlVolumeConfig{}
+	err = LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
+	if err != nil {
+		print_Error(err.Error(), logger)
+		return FAIL, err
+	}
+	fmt.Println(volumeConfigPath, yamlVolumeConfig.Branch)
+	if yamlVolumeConfig.NewBranch {
+		branch := YamlBranch{
+			Name:  yamlVolumeConfig.Branch,
+			Head:  obj.layerUUID,
+			Local: 1,
+		}
+		backingFilePath, _ := return_Volume_BackingFile(&obj.volumeName)
+		backingFileConfigPath := backingFilePath + ".yaml"
+		print_Log(fmt.Sprintf("Set branch '%s' head at '%s'", branch.Name, branch.Head), logger)
+		err = add_Branch(&branch, &backingFileConfigPath)
+		yamlVolumeConfig.NewBranch = false
+	} else {
+		err = reset_BranchHead(obj)
+	}
+	if err != nil {
+		print_Log("Failed.", logger)
+		print_Error(err.Error(), logger)
+		return FAIL, err
+	}
+	WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
+	print_Log(
+		Format_Success("Done."), logger)
+
+	if WAIT_CHANGE_LAYER == 1 {
+		checkoutObj := CheckoutParams{
+			volume: obj.volumeName,
+			layer:  obj.layerUUID,
+			output: obj.volumeName,
+		}
+		volume_checkout(&checkoutObj, logger)
+	}
 	// volumeLog := JsonLog{
 	// 	Operation:  "commit",
 	// 	UUID:       obj.snapshot,

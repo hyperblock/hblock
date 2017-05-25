@@ -1,5 +1,7 @@
 package hblock
 
+const WAIT_CHANGE_LAYER = 1
+
 const (
 	OK   = 0
 	FAIL = -1
@@ -58,7 +60,7 @@ Name: %s
 Disk Size: %.2fG (%d bytes)
 Actual Size: %.2fMB 
 
-Snapshots info:
+Layers info:
 	`
 const LAYER_INFO_FORMAT = `
 	Index: %s

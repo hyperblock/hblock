@@ -10,64 +10,78 @@ import (
 	"strings"
 )
 
-func volume_checkout(obj CheckoutParams, logger *log.Logger) (int, error) {
+func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 
 	checkoutArgs := []string{}
 	rollback := false
 	tmpOutput := ""
+	if obj.branch != "" {
+		print_Log(fmt.Sprintf("Create new branch '%s' (cached)", obj.branch), logger)
+		volumeConfigPath := return_Volume_ConfigPath(&obj.volume)
+		yamlVolumeConfig := YamlVolumeConfig{}
+		err := LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
+		if err != nil {
+			print_Error(err.Error(), logger)
+			return FAIL, err
+		}
+		yamlVolumeConfig.Branch = obj.branch
+		yamlVolumeConfig.NewBranch = true
+		err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
+		if err != nil {
+			print_Error(err.Error(), logger)
+			return FAIL, err
+		}
+		print_Log(Format_Success("Finished. (create new branch after commit)\n"), logger)
+		return OK, nil
+	}
+	layer := ""
+	print_Trace("volume: " + obj.volume)
 	if obj.volume != "" {
-		cmdVolInfo := exec.Command("qcow2-img", "info", obj.volume)
-		volInfoBuf, err := cmdVolInfo.Output()
-		if err != nil {
-			//msg := format_Error(err.Error())
-			print_Error(err.Error(), logger)
-			return FAIL, err
-		}
-		print_Log(string(volInfoBuf), logger)
-		volInfoList := strings.Split(string(volInfoBuf), "\n")
-		strValue := get_InfoValue(volInfoList, "backing file")
-		backingFile := get_StringBefore(
-			get_StringAfter(strValue, "qcow2://"), "?")
-		layer, err := return_LayerUUID(backingFile, obj.layer, false)
+		backingFile, err := return_Volume_BackingFile(&obj.volume)
 		if err != nil {
 			print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-		backingFile, err = confirm_BackingFilePath(backingFile)
+
+		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			print_Error(err.Error(), logger)
+			return FAIL, err
 		}
-		if backingFile == "" {
-			msg := "Can't find backing file."
-			print_Log(msg, logger)
-			return FAIL, fmt.Errorf(msg)
+		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer}
+		if obj.volume == obj.output {
+			tmpOutput = obj.output + ".tmp" + strconv.Itoa(rand.Int())[0:4]
+			rollback = true
+			checkoutArgs = append(checkoutArgs, tmpOutput)
+		} else {
+			checkoutArgs = append(checkoutArgs, obj.output)
 		}
-		tmpOutput = "tmp" + strconv.Itoa(rand.Int())
-		rollback = true
-		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, tmpOutput}
 	} else if obj.template != "" {
 		backingFile, err := confirm_BackingFilePath(obj.template)
 		if err != nil {
-			if strings.Index(err.Error(), "env") != -1 {
-				print_Log(err.Error(), logger)
-			} else {
-				print_Error(err.Error(), logger)
-			}
+			print_Error(err.Error(), logger)
+			return FAIL, err
 		}
-		if backingFile == "" {
-			msg := "Can't find backing file."
-			print_Error(msg, logger)
-			return FAIL, fmt.Errorf(msg)
-		}
-		layer, err := return_LayerUUID(backingFile, obj.layer, false)
+		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
 	}
-
+	print_Log("Create volume's config file...", logger)
 	//	createArgs := []string{"-l", layer, "-t", backingFile}
+	yamlVolume := YamlVolumeConfig{}
+	volumeConfigPath := return_Volume_ConfigPath(&obj.output)
+	if volumeConfigPath == "" {
+		print_Error("Can't locate volume config file path.", logger)
+		return FAIL, nil
+	}
+	err := WriteConfig(&yamlVolume, &volumeConfigPath)
+	if err != nil {
+		print_Error(err.Error(), logger)
+		return FAIL, err
+	}
 
 	print_Log(strings.Join(checkoutArgs, " "), logger)
 	cmdCreate := exec.Command("qcow2-img", checkoutArgs[0:]...)

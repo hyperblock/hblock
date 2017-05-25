@@ -9,13 +9,17 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 
 	//	specifyCommit := false
 	print_Log("Confirm volume information...", logger)
-	jsonVolume, err := return_JsonVolume(resetObj.volume)
+	// jsonVolume, err := return_JsonVolume(resetObj.volume)
+	// if err != nil {
+	// 	msg := "Can not get volume info."
+	// 	print_Error(msg, logger)
+	// 	return FAIL, fmt.Errorf(msg)
+	// }
+	volumeInfo, err := return_VolumeInfo(&resetObj.volume)
 	if err != nil {
-		msg := "Can not get volume info."
-		print_Error(msg, logger)
-		return FAIL, fmt.Errorf(msg)
+		print_Error(err.Error(), logger)
+		return FAIL, err
 	}
-	volumeInfo := return_VolumeInfo(&jsonVolume)
 	print_Log("done", logger)
 	if resetObj.time != -1 {
 		print_Log(fmt.Sprintf("Reset volume to the last %d commit", resetObj.time+1), logger)
@@ -27,7 +31,7 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 			return FAIL, err
 		}
 		checkoutObj := CheckoutParams{volume: resetObj.volume, layer: fullUUID}
-		return volume_checkout(checkoutObj, logger)
+		return volume_checkout(&checkoutObj, logger)
 		//specifyCommit = true
 	}
 
@@ -44,6 +48,6 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 		print_Error(msg, logger)
 		return FAIL, fmt.Errorf(msg)
 	}
-	checkoutObj := CheckoutParams{volume: resetObj.volume, layer: related_commit[resetObj.time].uuid}
-	return volume_checkout(checkoutObj, logger)
+	checkoutObj := CheckoutParams{volume: resetObj.volume, layer: related_commit[resetObj.time].uuid, output: resetObj.volume}
+	return volume_checkout(&checkoutObj, logger)
 }

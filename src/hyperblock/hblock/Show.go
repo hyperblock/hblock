@@ -33,6 +33,7 @@ func show_template(image string, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	print_Log("Done", logger)
+	//	fmt.Println(jsonBackingFile)
 	layerList := return_LayerList(&jsonBackingFile)
 	detail := ShowDetail{
 		name: filepath.Base(jsonBackingFile.Filename),
@@ -47,6 +48,7 @@ func show_template(image string, logger *log.Logger) (int, error) {
 		float64(detail.virtualSize>>20)/1024, detail.virtualSize, float64(detail.actualSize>>10)/1024,
 	)
 	layerInfo := ""
+	//	fmt.Println(len(detail.layers))
 	for _, item := range detail.layers {
 		info := fmt.Sprintf(
 			LAYER_INFO_FORMAT,

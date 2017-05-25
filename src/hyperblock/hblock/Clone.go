@@ -70,7 +70,7 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (int, error) {
 		print_Log("Done.", logger)
 	} else {
 		print_Log("The clone repo is a volume, will find the backing file.", logger)
-		volumeInfo := return_VolumeInfo(&jsonVolume)
+		volumeInfo := convert_to_VolumeInfo(&jsonVolume)
 		backingfile := volumeInfo.backingFile
 		print_Log(fmt.Sprintf("Backing file: %s", backingfile), logger)
 		if PathFileExists(backingfile) == false {
@@ -102,7 +102,7 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (int, error) {
 			return FAIL, err
 		}
 	}
-	return volume_checkout(checkoutObj, logger)
+	return volume_checkout(&checkoutObj, logger)
 
 }
 
@@ -154,6 +154,6 @@ func clone_Http(obj *CloneParams, logger *log.Logger) (int, error) {
 	if err != nil {
 		return FAIL, err
 	}
-	return volume_checkout(checkoutObj, logger)
+	return volume_checkout(&checkoutObj, logger)
 
 }

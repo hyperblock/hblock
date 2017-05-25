@@ -15,6 +15,7 @@ type CheckoutParams struct {
 	volume   string
 	output   string
 	template string
+	branch   string
 }
 
 type JsonBackingFile struct {
@@ -27,7 +28,7 @@ type JsonBackingFile struct {
 		DiskSize int64 `json:"disk-size"`
 		DateSec  int64 `json:"date-sec"`
 		DateNSec int64 `json:"date-nsec"`
-	}
+	} `json:"snapshots"`
 }
 
 type Layer struct {
@@ -95,4 +96,26 @@ type YamlCommitMsg struct {
 	Name    string `yaml:"name"`
 	Email   string `yaml:"email"`
 	Tag     string `yaml:"tag"`
+}
+
+type BranchParams struct {
+	show_all   bool
+	list       bool
+	volumePath string
+}
+
+type YamlBranch struct {
+	Name  string `yaml:"name"`
+	Local int    `yaml:"local"`
+	Head  string `yaml:"head"`
+}
+
+type YamlBackingFileConfig struct {
+	Name   string `yaml:"name"`
+	Branch []YamlBranch
+}
+
+type YamlVolumeConfig struct {
+	Branch    string `yaml:"branch.name"`
+	NewBranch bool   `yaml:"branch.create"`
 }
