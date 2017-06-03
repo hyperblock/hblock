@@ -3,8 +3,10 @@ package hblock
 const WAIT_CHANGE_LAYER = 1
 
 const (
-	OK   = 0
-	FAIL = -1
+	OK                         = 0
+	FAIL                       = -1
+	BACKINGFILE_CONFIG_NO_FIND = 0x00001
+	BACKINGFILE_NO_FIND        = 0x00002
 )
 
 const (

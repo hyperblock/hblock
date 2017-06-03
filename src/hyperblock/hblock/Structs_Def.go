@@ -76,9 +76,28 @@ type ResetParams struct {
 
 type CloneParams struct {
 	repoPath    string
+	configPath  string
 	checkoutFlg bool
 	layerUUID   string
 	protocol    int
+}
+
+type RemoteParams struct {
+	verbose bool
+	add     struct {
+		name string
+		url  string
+	}
+	remove string
+	rename struct {
+		oldName string
+		newName string
+	}
+	setUrl struct {
+		name string
+		url  string
+	}
+	backingFile string
 }
 
 type GlobalConfig struct {
@@ -110,9 +129,15 @@ type YamlBranch struct {
 	Head  string `yaml:"head"`
 }
 
+type YamlRemote struct {
+	Name string `yaml:"name"`
+	Url  string `yaml:"url"`
+}
+
 type YamlBackingFileConfig struct {
-	Name   string `yaml:"name"`
-	Branch []YamlBranch
+	Name   string       `yaml:"name"`
+	Remote []YamlRemote `yaml:"remote"`
+	Branch []YamlBranch `yaml:"branch"`
 }
 
 type YamlVolumeConfig struct {

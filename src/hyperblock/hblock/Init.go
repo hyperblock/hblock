@@ -19,7 +19,8 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	if PathFileExists(obj.name) {
+	//if PathFileExists(obj.name) {
+	if VerifyBackingFile(obj.name) == OK {
 		print_Error("Already exist.", logger)
 		return FAIL, nil
 	}

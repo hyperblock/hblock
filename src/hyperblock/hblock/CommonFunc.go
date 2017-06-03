@@ -78,6 +78,30 @@ func print_Trace(a ...interface{}) {
 	// fmt.Println(msg)
 }
 
+func print_ProcessBar(current, total int64) string {
+
+	bar := "["
+	base := int((float32(current) / float32(total)) * 100)
+	delta := int(float32(base)/float32(5) + 0.5)
+	for i := 0; i < delta; i++ {
+		bar += "="
+	}
+	delta = 20 - delta
+	for i := 0; i < delta; i++ {
+		bar += " "
+	}
+	bar += "]"
+	A, B := current>>20, total>>20
+	if A == 0 {
+		A = 1
+	}
+	if B == 0 {
+		B = 1
+	}
+	ret := fmt.Sprintf("%s %d%% (%d/%d)", bar, base, A, B)
+	return ret
+}
+
 func get_StringAfter(content string, prefix string) string {
 
 	//	print_Trace(fmt.Sprintf("get_StringAfter( %s, %s )", content, prefix))
@@ -187,6 +211,19 @@ func PathFileExists(filePath string) bool {
 		return false
 	}
 	return true
+}
+
+func VerifyBackingFile(backingfilePath string) int {
+
+	ret := OK
+	configPath := backingfilePath + ".yaml"
+	if PathFileExists(configPath) == false {
+		ret |= BACKINGFILE_CONFIG_NO_FIND
+	}
+	if PathFileExists(backingfilePath) == false {
+		ret |= BACKINGFILE_NO_FIND
+	}
+	return ret
 }
 
 func custom_Args(args []string, addition string) []string {

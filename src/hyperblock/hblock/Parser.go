@@ -61,6 +61,8 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 		return p.rebase(args)
 	case "reset":
 		return p.reset(args)
+	case "remote":
+		return p.remote(args)
 	case "tag":
 		return p.tag(args)
 	case "config":
@@ -346,6 +348,7 @@ func (p OptSelector) clone(args []string) (int, error) {
 	}
 	cloneObj := CloneParams{
 		repoPath:    args[0],
+		configPath:  args[0] + ".yaml",
 		checkoutFlg: !options.CheckoutFlag,
 		layerUUID:   options.Layer,
 	}
@@ -490,6 +493,68 @@ func (p OptSelector) reset(args []string) (int, error) {
 	print_Trace(resetObj)
 	return reset_volume(&resetObj, p.logger)
 
+}
+
+func (p OptSelector) remote(args []string) (int, error) {
+
+	var options struct {
+		Verbose bool `short:"v" long:"verbose" description:""`
+		Add     bool `short:"a" long:"add" description:"<name> <url>\tAdd a new remote-host to local remote-host list."`
+		Remove  bool `short:"d" long:"remove" description:"<name>\tDelete a host from local remote-host list."`
+		Rename  bool `long:"rename" description:"<old_name> <new_name>\t Rename an exsiting host name."`
+		SetUrl  bool `long:"set-url" descripion:"<name> <url>\tChange an exists remote-host's url."`
+	}
+	os.Args = custom_Args(args, "<volume>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		//flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, err
+	}
+	if len(args) < 1 {
+		msg := "Need specify <volume>"
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	volume := return_AbsPath(args[0])
+	if !PathFileExists(volume) {
+		msg := fmt.Sprintf("The specified volume '%s' can not be found.", volume)
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	backingfile, err := return_Volume_BackingFile(&volume)
+	if err != nil || VerifyBackingFile(backingfile) != OK {
+		msg := fmt.Sprintf("Can not verify backing file of '%s'", volume)
+		print_Error(msg, p.logger)
+		flags.ParseArgs(&options, []string{"-h"})
+		return FAIL, fmt.Errorf(msg)
+	}
+	remoteObj := RemoteParams{
+		verbose:     options.Verbose,
+		backingFile: backingfile,
+	}
+	if !options.Verbose {
+		if ((options.Add || options.Rename || options.SetUrl) && len(args) < 3) || (options.Rename && len(args) < 2) {
+			msg := "Too few arguments."
+			print_Error(msg, p.logger)
+			flags.ParseArgs(&options, []string{"-h"})
+			return FAIL, fmt.Errorf(msg)
+		}
+		if options.Add {
+			remoteObj.add.name = args[1]
+			remoteObj.add.url = args[2]
+		} else if options.SetUrl {
+			remoteObj.setUrl.name = args[1]
+			remoteObj.setUrl.url = args[2]
+		} else if options.Remove {
+			remoteObj.remove = args[1]
+		} else if options.Rename {
+			remoteObj.rename.oldName = args[1]
+			remoteObj.rename.newName = args[2]
+		}
+	}
+	return Remote(remoteObj, p.logger)
 }
 
 func (p OptSelector) tag(args []string) (int, error) {
