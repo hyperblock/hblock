@@ -86,7 +86,7 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 					output:     layerFile,
 				}
 				print_Log(fmt.Sprintf("\rDumplayer to local.( uuid : %s )......", layer), logger)
-				err = DumpLayer(&dumpObj)
+				err = h.DumpLayer(&dumpObj)
 				if err != nil {
 					print_Log(fmt.Sprintf("\rDumplayer to local.( uuid : %s )......FAIL\n", layer), logger)
 					return err

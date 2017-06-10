@@ -59,7 +59,12 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 			layerUUID:  layer,
 			output:     fileName,
 		}
-		err = DumpLayer(&dumpObj)
+		h, err := CreateHyperLayer(FMT_UNKNOWN, &backingFileConfig.Format)
+		if err != nil {
+			return 0, err
+		}
+		err = h.DumpLayer(&dumpObj)
+
 		if err != nil {
 			//	print_Error(fmt.Sprintf("Fail. (%s)", err.Error()), logger)
 			return FAIL, err

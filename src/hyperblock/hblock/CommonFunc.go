@@ -495,14 +495,14 @@ func return_BackingFileConfig_Path(path *string) string {
 	return *path + ".yaml"
 }
 
-func DumpLayer(obj *DumpParams) error {
+// func DumpLayer(obj *DumpParams) error {
 
-	dumpArgs := []string{"layerdump", "-t", obj.backngFile, "-l", obj.layerUUID, obj.output}
-	cmdDump := exec.Command("qcow2-img", dumpArgs[0:]...)
-	print_Trace(dumpArgs)
-	_, err := cmdDump.Output()
-	return err
-}
+// 	dumpArgs := []string{"layerdump", "-t", obj.backngFile, "-l", obj.layerUUID, obj.output}
+// 	cmdDump := exec.Command("qcow2-img", dumpArgs[0:]...)
+// 	print_Trace(dumpArgs)
+// 	_, err := cmdDump.Output()
+// 	return err
+// }
 
 func return_CommitInfo(layerPath *string) (CommitParams, error) {
 

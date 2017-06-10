@@ -96,7 +96,7 @@ func (p OptSelector) init(args []string) (int, error) {
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//	print_Error(err.Error(), p.logger)
-		return FAIL, err
+		return FAIL, nil
 	}
 	templateName := ""
 	if len(args) >= 1 {
@@ -170,7 +170,7 @@ func (p OptSelector) branch(args []string) (int, error) {
 	os.Args = custom_Args(args, "<volume name> highlight last commit branch head. ")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		return FAIL, err
+		return FAIL, nil
 	}
 	if len(args) < 1 {
 		msg := "Too few arguments. Need specify <volume name>"
@@ -199,56 +199,43 @@ func (p OptSelector) branch(args []string) (int, error) {
 func (p OptSelector) checkout(args []string) (int, error) {
 
 	var options struct {
-		Volume string `short:"v" long:"vol" description:"<volume_name> <layer_uuid | branch_name>\tSpecify the volume name which needs to be update(restore).\n"`
+		Volume string `short:"v" long:"vol" description:"<volume_name> <layer | branch> Specify the volume name which needs to be update(restore).\n"`
 
-		Template string `short:"t" long:"template" description:"<template_name> <layer_uuid | branch_name>\t Create a new volume from template.\n"`
+		Template string `short:"t" long:"backingfile" description:"<backingfile> <layer | branch> Create a new volume from <backingfile>.\n"`
 
-		//Layer string `short:"l" long:"layer" description:"<layer>\tSpecify the <layer> that this volume will restore. If the <layer> does\\'not exist, it will create a new layer from current volume."`
+		Output string `short:"o" long:"output" description:"<output_volume_path> [required if use '-t'] .\n"`
 
-		Output string `short:"o" long:"output" description:"<output_volume_path> [required if use \\'-t\\'] .\n"`
-
-		Branch string `short:"b" description:"<branch> <volume_name> \tCreate a new branch of specified volume.\n"`
+		Branch string `short:"b" description:"<branch> <volume_name> Create a new branch of specified volume.\n"`
 
 		Force bool `short:"f" long:"force.\n"`
 	}
 	os.Args = custom_Args(args, "")
 	args, err := flags.ParseArgs(&options, args[1:])
-
 	if err != nil {
-		return FAIL, err
+		return FAIL, nil
 	}
 	if len(args) < 1 {
 		msg := "Too few arguments"
-		//print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Template != "" && options.Volume != "" {
 		msg := "Can't use both -v and -t."
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Branch != "" && options.Template != "" {
 		msg := "Can't use both -t and -b."
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Volume != "" && options.Branch != "" {
 		msg := "Can't use both -v and -b."
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Branch == "" && (options.Template != "" && options.Output == "") {
 		msg := "use -o <output_volume_path> to set output volume file. "
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -258,16 +245,12 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		_, err := os.Stat(options.Volume)
 		if err != nil {
 			msg := fmt.Sprintf("Can't locate volume_name '%s'", options.Volume)
-			//	print_Error(msg, p.logger)
-			//flags.ParseArgs(&options, []string{"-h"})
 			p.Usage(&options)
 			return FAIL, fmt.Errorf(msg)
 		}
 		if options.Output == "" {
 			if !options.Force {
 				msg := "Need use -o to set the checkout volume name or use -f to reset current volume."
-				//		print_Error(msg, p.logger)
-				//flags.ParseArgs(&options, []string{"-h"})
 				p.Usage(&options)
 				return FAIL, fmt.Errorf(msg)
 			}
@@ -279,11 +262,9 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	}
 
 	checkoutObj := CheckoutParams{
-		volume: options.Volume,
-		//	layer:    args[0],
+		volume:   options.Volume,
 		output:   options.Output,
 		template: options.Template,
-		//	branch:   options.Branch,
 	}
 	if options.Branch != "" {
 		checkoutObj.branch = options.Branch
@@ -296,33 +277,22 @@ func (p OptSelector) checkout(args []string) (int, error) {
 
 func (p OptSelector) commit(args []string) (int, error) {
 
-	//p.logger.Println("commit", args)
-	//fmt.Println(args)
-	//return FAIL, fmt.Errorf("Option unfinished.")
 	var options struct {
 		CommitMsg string `short:"m" description:"commit message"`
 		UUID      string `long:"uuid" description:"set uuid by manual instead of auto-generate."`
 	}
 	os.Args = custom_Args(args, "<volume name>")
-	//	os.Args += " <volume name>"
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		//	flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, nil
 	}
-	//	fmt.Println(args)
 	if len(args) < 1 {
 		msg := "No volume name specified."
-		//print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	//fmt.Println(args)
 	if options.CommitMsg == "" {
 		msg := "Empty commit message. Use -m to set commit message."
-		//	print_Error(msg, p.logger)
-		//		flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -350,13 +320,10 @@ func (p OptSelector) clone(args []string) (int, error) {
 	args, err := flags.ParseArgs(&options, args[1:])
 
 	if err != nil {
-		//	flags.ParseArgs(&options, []string{"-h"})
-		return FAIL, err
+		return FAIL, nil
 	}
 	if len(args) != 1 {
 		msg := "Invalid arguments. Use '-h' for help."
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -366,9 +333,6 @@ func (p OptSelector) clone(args []string) (int, error) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	// if options.Branch == "" {
-	// 	options.Branch = "master"
-	// }
 	cloneObj := CloneParams{
 		repoPath:    args[0],
 		configPath:  return_BackingFileConfig_Path(&args[0]), // args[0] + ".yaml",
@@ -395,7 +359,7 @@ func (p OptSelector) push(args []string) (int, error) {
 	os.Args = custom_Args(args, "<repository> <refspec>")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		return FAIL, err
+		return FAIL, nil
 	}
 	if len(args) < 2 {
 		msg := "Too few arguments."
@@ -469,9 +433,25 @@ func (p OptSelector) log(args []string) (int, error) {
 
 func (p OptSelector) rebase(args []string) (int, error) {
 
-	p.logger.Println("rebase", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	//return 0, nil
+	var options struct {
+		Backingfile string `short:"b" long:"backingfile" description:"<backingfile>"`
+		Layer       string `short:"l" long:"layer" description:"<layer>"`
+	}
+	os.Args = custom_Args(args, "<volume_name>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, nil
+	}
+	if options.Backingfile == "" || options.Layer == "" || len(args) == 0 {
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("Too few arguments.")
+	}
+	obj := RebaseParams{
+		backingfile: return_AbsPath(options.Backingfile),
+		parentLayer: options.Layer,
+		volumePath:  return_AbsPath(args[0]),
+	}
+	return volume_Rebase(&obj, p.logger)
 }
 
 func (p OptSelector) reset(args []string) (int, error) {
@@ -556,7 +536,7 @@ func (p OptSelector) remote(args []string) (int, error) {
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//flags.ParseArgs(&options, []string{"-h"})
-		return FAIL, err
+		return FAIL, nil
 	}
 	if len(args) < 1 {
 		msg := "Need specify <volume>"
@@ -621,7 +601,7 @@ func (p OptSelector) config(args []string) (int, error) {
 	os.Args = custom_Args(args, "")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		return FAIL, err
+		return FAIL, nil
 	}
 	if options.Global != "" {
 		if len(args) < 1 {

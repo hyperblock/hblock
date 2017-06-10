@@ -5,15 +5,13 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
 	"strconv"
-	"strings"
 )
 
 func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 
 	checkoutArgs := []string{}
-	rollback := false
+	rollback := ""
 	tmpOutput := ""
 	if obj.branch != "" {
 		print_Log(fmt.Sprintf("Create new branch '%s' (cached)", obj.branch), logger)
@@ -35,6 +33,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		return OK, nil
 	}
 	layer := ""
+	backingFileConfig := ""
 	print_Trace("volume: " + obj.volume)
 	if obj.volume != "" {
 		backingFile, err := return_Volume_BackingFile(&obj.volume)
@@ -42,32 +41,36 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-
+		backingFileConfig = return_BackingFileConfig_Path(&backingFile)
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			//print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer}
+		//checkoutArgs = []string{"create", "-t", backingFile, "-l", layer}
 		if obj.volume == obj.output {
 			tmpOutput = obj.output + ".tmp" + strconv.Itoa(rand.Int())[0:4]
-			rollback = true
+			rollback = obj.output
+			obj.output = tmpOutput
 			checkoutArgs = append(checkoutArgs, tmpOutput)
-		} else {
-			checkoutArgs = append(checkoutArgs, obj.output)
 		}
+		obj.layer = layer
+		obj.template = backingFile
 	} else if obj.template != "" {
 		backingFile, err := confirm_BackingFilePath(obj.template)
 		if err != nil {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
+		backingFileConfig = return_BackingFileConfig_Path(&backingFile)
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
+		obj.template = backingFile
+		obj.layer = layer
+		//checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
 	}
 	print_Log("Create volume's config file...", logger)
 	//	createArgs := []string{"-l", layer, "-t", backingFile}
@@ -81,23 +84,23 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		//print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-
-	print_Log(strings.Join(checkoutArgs, " "), logger)
-	cmdCreate := exec.Command("qcow2-img", checkoutArgs[0:]...)
-	result, err := cmdCreate.Output()
+	h, err := CreateHyperLayer(FMT_UNKNOWN, &backingFileConfig)
 	if err != nil {
-		//print_Panic(err.Error(), logger)
 		return FAIL, err
 	}
-	print_Log(string(result), logger)
-	if rollback {
-		rmErr := os.Remove(obj.volume)
+	err = h.Checkout(obj)
+	if err != nil {
+		return FAIL, err
+	}
+
+	if rollback != "" {
+		rmErr := os.Remove(rollback)
 		if rmErr != nil {
 			os.Remove(tmpOutput)
 			//	print_Panic(rmErr.Error(), logger)
 			return FAIL, rmErr
 		}
-		mvErr := os.Rename(tmpOutput, obj.volume)
+		mvErr := os.Rename(obj.output, rollback)
 		if mvErr != nil {
 			os.Remove(tmpOutput)
 			//	print_Panic(mvErr.Error(), logger)
