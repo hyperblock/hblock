@@ -1,9 +1,7 @@
 package hblock
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,224 +12,217 @@ import (
 func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 
 	obj.protocol = return_RepoPath_Type(obj.repoPath)
-
 	var err error
+	checkoutObj := CheckoutParams{}
 	if obj.protocol == REPO_PATH_LOCAL {
-		_, err = clone_Local(obj, logger)
+		checkoutObj, err = clone_Local(obj, logger)
 	} else if obj.protocol == REPO_PATH_HTTP {
-		_, err = clone_Http(obj, logger)
+		if obj.hardLink {
+			print_Log("Http protocol get, ignore --hardlink.", logger)
+		}
+		checkoutObj, err = clone_Http(obj, logger)
 	} else if obj.protocol == REPO_PATH_SSH {
-		//_, err = clone_
 		msg := "ssh clone does not support at this time."
-		print_Error(msg, logger)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if err != nil {
-		print_Error(err.Error(), logger)
+		//	print_Error(err.Error(), logger)
 		return FAIL, err
+	}
+	if obj.checkoutFlg {
+		defaultBranch := checkoutObj.branch
+		checkoutObj.branch = ""
+		//	_, err= volume_checkout(&checkout, logger)
+		print_Log("Checkout volume...", logger)
+		_, err = volume_checkout(&checkoutObj, logger)
+		if err != nil {
+			//		print_Error(err.Error(), logger)
+			return FAIL, err
+		}
+		yamlVolConfig := YamlVolumeConfig{}
+		print_Log("Write volume config...", logger)
+		volConfigPath := return_Volume_ConfigPath(&checkoutObj.output)
+		err = LoadConfig(&yamlVolConfig, &volConfigPath)
+		if err != nil {
+			return FAIL, err
+		}
+		yamlVolConfig.Branch = defaultBranch
+		err = WriteConfig(&yamlVolConfig, &volConfigPath)
+		if err != nil {
+			return FAIL, err
+		}
 	}
 	print_Log(Format_Success("Clone finished."), logger)
 	return OK, nil
 }
 
-func clone_Local(obj *CloneParams, logger *log.Logger) (int, error) {
+func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 
+	print_Log(fmt.Sprintf("Clone from local: %s", obj.repoPath), logger)
 	obj.repoPath = return_AbsPath(obj.repoPath)
 	currentDir, err := return_CurrentDir()
-	// if obj.repoPath[0] != '/' {
-	// 	if err == nil {
-	// 		obj.repoPath = currentDir + obj.repoPath
-	// 		obj.configPath = currentDir + obj.repoPath+".yaml"
-	// 	}
-	// }
 	print_Log("Initializating local hb directory...", logger)
-	_, err = hb_Init()
+	checkoutRet := CheckoutParams{}
+	hbDir, err := hb_Init()
 	if err != nil {
 		//	print_Error(err.Error(), logger)
-		return FAIL, err
+		return checkoutRet, err
 	}
-	print_Log("Done.", logger)
 	jsonVolume, err := return_JsonVolume(obj.repoPath)
-	volFlag := false
+	//volFlag := false
 	if jsonVolume.BackingFile != "" {
 		volumeInfo := convert_to_VolumeInfo(&jsonVolume)
 		backingfile := volumeInfo.backingFile
 		obj.repoPath = backingfile
 		obj.layerUUID = volumeInfo.layer
-		volFlag = true
+		if err != nil {
+			return checkoutRet, err
+		}
+		//	volFlag = true
 	}
 	if dRet := VerifyBackingFile(obj.repoPath); dRet != OK {
 		msg := fmt.Sprintf("backing file '%s' info can not be verified. (ErrCode: %d)", obj.repoPath, dRet)
-		print_Error(msg, logger)
-		return FAIL, fmt.Errorf(msg)
+		return checkoutRet, fmt.Errorf(msg)
 	}
-	targetRepoPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(obj.repoPath)
-	targetConfigPath := targetRepoPath + ".yaml"
-	print_Log(fmt.Sprintf("Start clone repo '%s' to '%s'..", obj.repoPath, targetRepoPath), logger)
-	_, err = CopyFile(targetConfigPath, obj.configPath)
-	if err != nil {
-		//	print_Error(err.Error(), logger)
-		if PathFileExists(targetConfigPath) {
-			os.Remove(targetConfigPath)
-		}
-		return FAIL, err
-	}
-	_, err = CopyFile(targetRepoPath, obj.repoPath)
-	if err != nil {
-		//	print_Error(err.Error(), logger)
-		if PathFileExists(targetRepoPath) {
-			os.Remove(targetRepoPath)
-		}
-		return FAIL, err
-	}
-	//	checkoutObj.template = targetRepoPath
-	print_Log("Done.", logger)
-	// } else {
-	// 	print_Log("The clone repo is a volume, will find the backing file.", logger)
-	// 	volumeInfo := convert_to_VolumeInfo(&jsonVolume)
-	// 	backingfile := volumeInfo.backingFile
-	// 	configPath := backingfile + ".yaml"
-	// 	print_Log(fmt.Sprintf("Backing file: %s", backingfile), logger)
-	// 	if PathFileExists(configPath) == false {
-	// 		msg := fmt.Sprintf("backing file's config '%s' not found.", configPath)
-	// 		return FAIL, fmt.Errorf(msg)
-	// 	}
-	// 	if PathFileExists(backingfile) == false {
-	// 		msg := fmt.Sprintf("backing file '%s' not found.", backingfile)
-	// 		return FAIL, fmt.Errorf(msg)
-	// 	}
-	// 	targetRepoPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(backingfile)
-	// 	targetConfigPath := targetRepoPath + ".yaml"
-	// 	print_Log(fmt.Sprintf("Start clone repo '%s' to '%s'..", backingfile, targetRepoPath), logger)
-	// 	_, err := CopyFile(targetConfigPath, configPath)
-	// 	if err != nil {
-	// 		//	print_Error(err.Error(), logger)
-	// 		if PathFileExists(targetConfigPath) {
-	// 			os.Remove(targetConfigPath)
-	// 		}
-	// 		return FAIL, err
-	// 	}
-	// 	_, err = CopyFile(targetRepoPath, backingfile)
-	// 	if err != nil {
-	// 		//	print_Error(err.Error(), logger)
-	// 		if PathFileExists(targetRepoPath) {
-	// 			os.Remove(targetRepoPath)
-	// 		}
-	// 		return FAIL, err
-	// 	}
-	// 	checkoutObj.template = targetRepoPath
-	// 	checkoutObj.layer = volumeInfo.layer
-	// 	print_Log("Done.", logger)
-	// }
-	if !obj.checkoutFlg {
-		return OK, nil
-	}
-	checkoutObj := CheckoutParams{template: obj.repoPath, output: currentDir + path.Base(obj.repoPath), layer: obj.layerUUID}
-	print_Log("Ready to checkout from backing file.", logger)
-	if !volFlag || obj.layerUUID != "" {
-		checkoutObj.layer, err = return_LayerUUID(obj.repoPath, obj.layerUUID, true)
+	if obj.hardLink {
+		print_Log("Create hard link...", logger)
+		repoLinkPath := hbDir + path.Base(obj.repoPath)
+		configLinkpath := hbDir + path.Base(obj.configPath)
+		err = os.Link(obj.repoPath, repoLinkPath)
 		if err != nil {
-			return FAIL, err
+			return checkoutRet, err
 		}
+		err = os.Link(obj.configPath, configLinkpath)
+		if err != nil {
+			return checkoutRet, err
+		}
+		obj.repoPath, obj.configPath = repoLinkPath, configLinkpath
+	} else {
+		targetRepoPath := hbDir + path.Base(obj.repoPath)
+		targetConfigPath := return_BackingFileConfig_Path(&targetRepoPath) // targetRepoPath + ".yaml"
+		print_Log(fmt.Sprintf("Start clone repo '%s' to '%s'..", obj.repoPath, targetRepoPath), logger)
+
+		_, err = CopyFile(targetConfigPath, obj.configPath)
+		if err != nil {
+			//	print_Error(err.Error(), logger)
+			if PathFileExists(targetConfigPath) {
+				os.Remove(targetConfigPath)
+			}
+			return checkoutRet, err
+		}
+		pullObj := PullParams{
+			//branch:   []string{obj.branch},
+			all:            false,
+			remoteRepoPath: obj.repoPath,
+			localRepoPath:  targetRepoPath,
+			configPath:     targetConfigPath,
+			protocol:       REPO_PATH_LOCAL,
+		}
+		if obj.branch == "" {
+			err = PullDefaultBranch(&pullObj, logger)
+		} else {
+			pullObj.branch = obj.branch
+			err = PullBranch(&pullObj, logger)
+		}
+		if err != nil {
+			return checkoutRet, err
+		}
+
+		if !obj.checkoutFlg {
+			return checkoutRet, nil
+		}
+		obj.branch = pullObj.branch
+		obj.layerUUID = pullObj.pullList[0] //will return branch head commit id
+		obj.repoPath, obj.configPath = targetRepoPath, targetConfigPath
+
 	}
-	return volume_checkout(&checkoutObj, logger)
+	checkoutRet = CheckoutParams{branch: obj.branch, template: obj.repoPath, output: currentDir + path.Base(obj.repoPath), layer: obj.layerUUID}
+	print_Log(fmt.Sprintf("Ready to checkout from backing file. (volume name: %s)", checkoutRet.output), logger)
+
+	return checkoutRet, err
 
 }
 
-func clone_Http(obj *CloneParams, logger *log.Logger) (int, error) {
+func clone_Http(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 
 	print_Log("Initializating local hb directory...", logger)
-	_, err := hb_Init()
+	checkoutRet := CheckoutParams{}
+	hbDir, err := hb_Init()
 	if err != nil {
-		return FAIL, err
+		return checkoutRet, err
 	}
-	currentDir, err := return_CurrentDir()
+	print_Log(fmt.Sprintf("Downloading repo's config from url: %s", obj.configPath), logger)
+	targetConfigPath, err := downloadConfig(&obj.configPath)
 	if err != nil {
-		print_Log(Format_Warning("Can't get pwd."), logger)
+		return checkoutRet, err
+	}
+	//branch := YamlBranch{}
+
+	branch, err := return_BranchInfo(&targetConfigPath, obj.branch)
+	if err != nil {
+		return checkoutRet, err
+	}
+	pullObj := PullParams{
+		pullList:       []string{branch.Head},
+		branch:         branch.Name,
+		protocol:       REPO_PATH_HTTP,
+		all:            false,
+		remoteRepoPath: obj.repoPath,
+		configPath:     targetConfigPath,
+		localRepoPath:  hbDir + path.Base(obj.repoPath),
 	}
 
-	print_Log(fmt.Sprintf("Downloading repo's config from url: %s", obj.configPath), logger)
-	respConfig, err := http.Get(obj.configPath)
+	err = PullBranch(&pullObj, logger)
 	if err != nil {
-		msg := fmt.Sprintf("Fetch: %v", err)
-		return FAIL, fmt.Errorf(msg)
+		return checkoutRet, err
+	}
+	print_Log("Add remote origin..", logger)
+	err = setRemoteOrigin(&targetConfigPath, &obj.repoPath)
+	if err != nil {
+		//print_Error(err.Error(), logger)
+		return checkoutRet, err
+	}
+	if !obj.checkoutFlg {
+		return checkoutRet, nil
+	}
+	checkoutRet = CheckoutParams{
+		template: pullObj.localRepoPath,
+		output:   path.Base(pullObj.localRepoPath),
+		layer:    branch.Head,
+	}
+	//checkoutRet.layer, err = return_LayerUUID(targetPath, obj.layerUUID, true)
+	if err != nil {
+		return checkoutRet, err
+	}
+	return checkoutRet, nil
+
+}
+
+func downloadConfig(configPath *string) (string, error) {
+
+	respConfig, err := http.Get(*configPath)
+	if err != nil {
+		msg := fmt.Errorf("Fetch: %v", err)
+		return "", msg
 	}
 	defer respConfig.Body.Close()
-	targetConfigPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(obj.configPath)
-	configDst, err := os.OpenFile(targetConfigPath, os.O_WRONLY|os.O_CREATE, 0644)
+	currentDir, err := return_CurrentDir()
 	if err != nil {
-		return 0, err
+		return "", err
+	}
+	targetConfigPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(*configPath)
+	configDst, err := os.OpenFile(targetConfigPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return "", err
 	}
 	defer configDst.Close()
 	configBuff, err := ioutil.ReadAll(respConfig.Body)
 	if err != nil {
-
-		return FAIL, err
+		return "", err
 	}
-	_, err = io.Copy(configDst, bytes.NewBuffer(configBuff))
+	_, err = configDst.Write(configBuff)
 	if err != nil {
-		return FAIL, err
+		return "", err
 	}
-	print_Log("Done.", logger)
-
-	print_Log(fmt.Sprintf("Downloading repo from url: %s", obj.repoPath), logger)
-	resp, err := http.Get(obj.repoPath)
-	if err != nil {
-		msg := fmt.Sprintf("Fetch: %v", err)
-		return FAIL, fmt.Errorf(msg)
-	}
-	print_Log(fmt.Sprintf("Content length: %d", resp.ContentLength), logger)
-	defer resp.Body.Close()
-	//return FAIL, fmt.Errorf("111")
-	if err != nil {
-		msg := fmt.Sprintf("Fetch: reading %s: %v\n", obj.repoPath, err)
-		return FAIL, fmt.Errorf(msg)
-	}
-	//	print_Log(fmt.Sprintf("Read buffer done. (length: %d)", len(buffer)), logger)
-	targetPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(obj.repoPath)
-	dst, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-
-	if err != nil {
-		return 0, err
-	}
-	defer dst.Close()
-	//_, err = io.Copy(dst, bytes.NewReader(buffer))
-	length := resp.ContentLength
-	buffer := make([]byte, 4*2<<20)
-	cnt := int64(0)
-	for {
-		if length <= 0 {
-			break
-		}
-		dwRead, err := io.ReadFull(resp.Body, buffer)
-		if int64(dwRead) != length && err != nil {
-			return FAIL, err
-		}
-		length -= int64(dwRead)
-		_, err = io.Copy(dst, bytes.NewReader(buffer))
-		if err != nil {
-			return FAIL, nil
-		}
-		cnt += int64(dwRead)
-		msg := print_ProcessBar(cnt, resp.ContentLength)
-		fmt.Printf("\rDownloading %s", msg)
-	}
-	fmt.Println()
-	if err != nil {
-		msg := fmt.Sprintf("Write buffer to file failed. (%v)", err)
-		return FAIL, fmt.Errorf(msg)
-	}
-	if !obj.checkoutFlg {
-		return OK, nil
-	}
-	checkoutObj := CheckoutParams{
-		template: targetPath,
-		output:   path.Base(targetPath),
-	}
-	checkoutObj.layer, err = return_LayerUUID(targetPath, obj.layerUUID, true)
-	if err != nil {
-		return FAIL, err
-	}
-	return volume_checkout(&checkoutObj, logger)
-
+	return targetConfigPath, nil
 }

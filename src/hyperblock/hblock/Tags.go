@@ -1,5 +1,12 @@
 package hblock
 
+// type HyperblockCLI struct {
+// 	logger     *log.Logger
+// 	currentDir string
+// 	err        error
+// }
+const SHOW_TRACE = 1
+
 const WAIT_CHANGE_LAYER = 1
 
 const (

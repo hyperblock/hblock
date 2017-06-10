@@ -17,7 +17,6 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 	// }
 	volumeInfo, err := return_VolumeInfo(&resetObj.volume)
 	if err != nil {
-		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log("done", logger)
@@ -27,7 +26,7 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 		print_Log(fmt.Sprint("Reset volume to commit %s", resetObj.uuid), logger)
 		fullUUID, err := return_LayerUUID(volumeInfo.backingFile, resetObj.uuid, false)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		checkoutObj := CheckoutParams{volume: resetObj.volume, layer: fullUUID}
@@ -35,18 +34,15 @@ func reset_volume(resetObj *ResetParams, logger *log.Logger) (int, error) {
 		//specifyCommit = true
 	}
 
-	jsonBackingFile, err := return_JsonBackingFile(volumeInfo.backingFile)
+	jsonBackingFile, err := return_JsonBackingFile(&volumeInfo.backingFile)
 	if err != nil {
-		msg := "Can not get backing file info."
-		print_Error(msg, logger)
-		return FAIL, fmt.Errorf(msg)
+		return FAIL, fmt.Errorf("Can not get backing file info. ( %s )", err.Error())
 	}
 
 	related_commit := return_commit_history(&jsonBackingFile, volumeInfo.layer)
 	if len(related_commit) <= resetObj.time {
-		msg := fmt.Sprintf("The reset commit version is invalid.( related commits: %d < %d )", len(related_commit), resetObj.time+1)
-		print_Error(msg, logger)
-		return FAIL, fmt.Errorf(msg)
+		return FAIL, fmt.Errorf("The reset commit version is invalid.( related commits: %d < %d )", len(related_commit), resetObj.time+1)
+
 	}
 	checkoutObj := CheckoutParams{volume: resetObj.volume, layer: related_commit[resetObj.time].uuid, output: resetObj.volume}
 	return volume_checkout(&checkoutObj, logger)

@@ -9,18 +9,16 @@ func show_Branch_Info(branchParams *BranchParams, logger *log.Logger) (int, erro
 
 	volumeInfo, err := return_VolumeInfo(&branchParams.volumePath)
 	if err != nil {
-		print_Error(err.Error(), logger)
+		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	backingfile := volumeInfo.backingFile
 	layer := volumeInfo.layer
-	configPath := backingfile + ".yaml"
+	configPath := return_BackingFileConfig_Path(&backingfile) //backingfile + ".yaml"
 	yamlConfig := YamlBackingFileConfig{}
 	err = LoadConfig(&yamlConfig, &configPath)
 	if err != nil {
-		msg := fmt.Sprintf("Load backing file '%s' config failed. ( %s )", configPath, err.Error())
-		print_Error(msg, logger)
-		return FAIL, err
+		return FAIL, fmt.Errorf("Load backing file '%s' config failed. ( %s )", configPath, err.Error())
 	}
 	branchs := yamlConfig.Branch
 	msg := ""
@@ -71,7 +69,7 @@ func add_Branch(branch *YamlBranch, configPath *string) error {
 func reset_BranchHead(obj CommitParams) error {
 
 	backingFilePath, _ := return_Volume_BackingFile(&obj.volumeName)
-	jsonBackingFile, _ := return_JsonBackingFile(backingFilePath)
+	jsonBackingFile, _ := return_JsonBackingFile(&backingFilePath)
 	layerList := return_LayerList(&jsonBackingFile)
 	parentUUID := ""
 	for _, layer := range layerList {
@@ -80,7 +78,7 @@ func reset_BranchHead(obj CommitParams) error {
 			break
 		}
 	}
-	configPath := backingFilePath + ".yaml"
+	configPath := return_BackingFileConfig_Path(&backingFilePath) //backingFilePath + ".yaml"
 	yamlConfig := YamlBackingFileConfig{}
 	err := LoadConfig(&yamlConfig, &configPath)
 	if err != nil {

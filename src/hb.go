@@ -54,13 +54,19 @@ func main() {
 		fmt.Println(msg)
 		return
 	}
+	defer file.Close()
 	logger := log.New(file, "", log.LstdFlags)
-	optSelector := hblock.Create(logger)
+	optSelector := hblock.CreateOptSelector(logger)
 	//	args := []string{"init", "--name", "hehe", "--size", "2G"}
 	args := os.Args
 	//	fmt.Println(args)
 	//status, err :=
-	optSelector.SendCommand(args[1:])
-	file.Close()
+	//	args = strings.Split("hb clone /var/www/html/repo/test", " ")
+	//args = strings.Split("hb push origin master -v test/test", " ")
+	//	args = strings.Split("hb init t1 --size 10G", " ")
+	_, err = optSelector.SendCommand(args[1:])
+	if err != nil {
+		hblock.Print_Error(err.Error(), logger)
+	}
 	//fmt.Println(status, err)
 }

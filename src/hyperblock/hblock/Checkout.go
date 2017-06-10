@@ -21,14 +21,14 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		yamlVolumeConfig := YamlVolumeConfig{}
 		err := LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		yamlVolumeConfig.Branch = obj.branch
 		yamlVolumeConfig.NewBranch = true
 		err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		print_Log(Format_Success("Finished. (create new branch after commit)\n"), logger)
@@ -39,13 +39,13 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	if obj.volume != "" {
 		backingFile, err := return_Volume_BackingFile(&obj.volume)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer}
@@ -59,12 +59,12 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	} else if obj.template != "" {
 		backingFile, err := confirm_BackingFilePath(obj.template)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
-			print_Error(err.Error(), logger)
+			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
 		checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
@@ -74,12 +74,11 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	yamlVolume := YamlVolumeConfig{}
 	volumeConfigPath := return_Volume_ConfigPath(&obj.output)
 	if volumeConfigPath == "" {
-		print_Error("Can't locate volume config file path.", logger)
-		return FAIL, nil
+		return FAIL, fmt.Errorf("Can't locate volume config file path.")
 	}
 	err := WriteConfig(&yamlVolume, &volumeConfigPath)
 	if err != nil {
-		print_Error(err.Error(), logger)
+		//print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 
@@ -87,7 +86,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	cmdCreate := exec.Command("qcow2-img", checkoutArgs[0:]...)
 	result, err := cmdCreate.Output()
 	if err != nil {
-		print_Panic(err.Error(), logger)
+		//print_Panic(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log(string(result), logger)
@@ -95,13 +94,13 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		rmErr := os.Remove(obj.volume)
 		if rmErr != nil {
 			os.Remove(tmpOutput)
-			print_Panic(rmErr.Error(), logger)
+			//	print_Panic(rmErr.Error(), logger)
 			return FAIL, rmErr
 		}
 		mvErr := os.Rename(tmpOutput, obj.volume)
 		if mvErr != nil {
 			os.Remove(tmpOutput)
-			print_Panic(mvErr.Error(), logger)
+			//	print_Panic(mvErr.Error(), logger)
 			return FAIL, mvErr
 		}
 	}

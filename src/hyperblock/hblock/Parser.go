@@ -20,7 +20,7 @@ type OptSelector struct {
 }
 
 // Create an OptSelector object, and all message will print to _log
-func Create(_log *log.Logger) *OptSelector {
+func CreateOptSelector(_log *log.Logger) *OptSelector {
 
 	p := &OptSelector{logger: _log}
 
@@ -33,7 +33,7 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 	//args = strings.Split("commit image1 -m \"layer0\" ", " ")
 	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
-		print_Error("invalid option.", p.logger)
+		//	print_Error("invalid option.", p.logger)
 		return FAIL, fmt.Errorf("invalid option.")
 	}
 	option := args[0]
@@ -81,7 +81,7 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 		return p.show(args)
 	default:
 		msg := "invalid option, and there is no --help :)"
-		print_Error(msg, p.logger)
+		//	print_Error(msg, p.logger)
 		return FAIL, fmt.Errorf(msg, p.logger)
 	}
 }
@@ -110,22 +110,25 @@ func (p OptSelector) init(args []string) (int, error) {
 		}
 	} else {
 		msg := "Can't get template name."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 
 	if options.Size == "" {
 		msg := "--size is required."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	sizeI64 := return_Size(options.Size)
 	if sizeI64 < 0 {
 		msg := "Invalid --size set"
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	directPathFlg := false
@@ -145,7 +148,7 @@ func (p OptSelector) init(args []string) (int, error) {
 		templateDir, _ := return_TemplateDir()
 		templateName = templateDir + "/" + templateName
 	}
-	obj := InitParams{name: templateName, size: sizeI64, output: options.Output}
+	obj := InitParams{name: templateName, size: sizeI64, output: options.Output, checkout: true}
 	msg := fmt.Sprintf("Init template named '%s' and new volume '%s'", templateName, obj.output)
 	print_Log(msg, p.logger)
 	return create_empty_template(obj, p.logger)
@@ -171,22 +174,19 @@ func (p OptSelector) branch(args []string) (int, error) {
 	}
 	if len(args) < 1 {
 		msg := "Too few arguments. Need specify <volume name>"
-		print_Error(msg, p.logger)
+		//	print_Error(msg, p.logger)
 		flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, fmt.Errorf(msg)
 	}
 	if !(options.List || options.All) {
-		// msg := "Too few arguments."
-		// print_Error(msg, p.logger)
-		// flags.ParseArgs(&options, []string{"-h"})
-		// return FAIL, fmt.Errorf(msg)
 		options.List = true
 	}
 	volume := return_AbsPath(args[0])
 	if !PathFileExists(volume) {
 		msg := fmt.Sprintf("Volume '%s' not found.", volume)
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	branchParams := BranchParams{
@@ -219,32 +219,37 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	}
 	if len(args) < 1 {
 		msg := "Too few arguments"
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Template != "" && options.Volume != "" {
 		msg := "Can't use both -v and -t."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Branch != "" && options.Template != "" {
 		msg := "Can't use both -t and -b."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Volume != "" && options.Branch != "" {
 		msg := "Can't use both -v and -b."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if options.Branch == "" && (options.Template != "" && options.Output == "") {
 		msg := "use -o <output_volume_path> to set output volume file. "
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 
@@ -253,15 +258,17 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		_, err := os.Stat(options.Volume)
 		if err != nil {
 			msg := fmt.Sprintf("Can't locate volume_name '%s'", options.Volume)
-			print_Error(msg, p.logger)
-			flags.ParseArgs(&options, []string{"-h"})
+			//	print_Error(msg, p.logger)
+			//flags.ParseArgs(&options, []string{"-h"})
+			p.Usage(&options)
 			return FAIL, fmt.Errorf(msg)
 		}
 		if options.Output == "" {
 			if !options.Force {
 				msg := "Need use -o to set the checkout volume name or use -f to reset current volume."
-				print_Error(msg, p.logger)
-				flags.ParseArgs(&options, []string{"-h"})
+				//		print_Error(msg, p.logger)
+				//flags.ParseArgs(&options, []string{"-h"})
+				p.Usage(&options)
 				return FAIL, fmt.Errorf(msg)
 			}
 			options.Output = options.Volume
@@ -306,15 +313,17 @@ func (p OptSelector) commit(args []string) (int, error) {
 	//	fmt.Println(args)
 	if len(args) < 1 {
 		msg := "No volume name specified."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	//fmt.Println(args)
 	if options.CommitMsg == "" {
 		msg := "Empty commit message. Use -m to set commit message."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//		flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	commitObj := CommitParams{
@@ -331,6 +340,10 @@ func (p OptSelector) clone(args []string) (int, error) {
 		//			Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
 		Layer string `short:"l" long:"layer" description:"Checkout <layer> instead of the HEAD\n"`
 
+		HardLink bool `long:"--hardlink" description:"use local hardlinks.\n"`
+
+		Branch string `short:"b" long:"branch" description:"Clone the specified <branch> instead of default ('master').\n"`
+
 		CheckoutFlag bool `short:"n" long:"no-checkout" description:"No checkout of HEAD is performed after clone is complete.\n"`
 	}
 	os.Args = custom_Args(args, "<repo path>")
@@ -342,14 +355,26 @@ func (p OptSelector) clone(args []string) (int, error) {
 	}
 	if len(args) != 1 {
 		msg := "Invalid arguments. Use '-h' for help."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
+	if options.HardLink && options.Branch != "" {
+		msg := "Can't use both --hardlink and -b."
+		//	print_Error(msg, p.logger)
+		p.Usage(&options)
+		return FAIL, fmt.Errorf(msg)
+	}
+	// if options.Branch == "" {
+	// 	options.Branch = "master"
+	// }
 	cloneObj := CloneParams{
 		repoPath:    args[0],
-		configPath:  args[0] + ".yaml",
+		configPath:  return_BackingFileConfig_Path(&args[0]), // args[0] + ".yaml",
 		checkoutFlg: !options.CheckoutFlag,
+		hardLink:    options.HardLink,
+		branch:      options.Branch,
 		layerUUID:   options.Layer,
 	}
 	return clone_Repo(&cloneObj, p.logger)
@@ -359,21 +384,44 @@ func (p OptSelector) pull(args []string) (int, error) {
 
 	p.logger.Println("pull", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	//return 0, nil
 }
 
 func (p OptSelector) push(args []string) (int, error) {
 
-	p.logger.Println("push", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	var options struct {
+		Volume string `short:"v" long:"volume" description:"<volume>"`
+	}
+	os.Args = custom_Args(args, "<repository> <refspec>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, err
+	}
+	if len(args) < 2 {
+		msg := "Too few arguments."
+		//print_Error(msg, p.logger)
+		p.Usage(&options)
+		return FAIL, fmt.Errorf(msg)
+	}
+	if options.Volume == "" {
+		msg := "Need specify <volume>."
+		//print_Error(msg, p.logger)
+		p.Usage(&options)
+		return FAIL, fmt.Errorf(msg)
+	}
+	pushObj := PushParams{
+		remote: args[0],
+		branch: args[1],
+		volume: return_AbsPath(options.Volume),
+	}
+	return push_volume(pushObj, p.logger)
 }
 
 func (p OptSelector) save(args []string) (int, error) {
 
 	p.logger.Println("save", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	//return 0, nil
 }
 
 func (p OptSelector) log(args []string) (int, error) {
@@ -395,14 +443,14 @@ func (p OptSelector) log(args []string) (int, error) {
 	os.Args = custom_Args(args, "<volume name>")
 	if len(args) <= 1 {
 		msg := "Too few arguments."
-		print_Error(msg, p.logger)
-		//	fmt.Println(OPT_LOG_USAGE)
-		return FAIL, nil
+		//print_Error(msg, p.logger)
+		fmt.Println(OPT_LOG_USAGE)
+		return FAIL, fmt.Errorf(msg)
 	}
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//print_Error(err.Error(), p.logger)
-		//fmt.Println(OPT_LOG_USAGE)
+		fmt.Println(OPT_LOG_USAGE)
 		return FAIL, err
 	}
 	//fmt.Println(args[0])
@@ -411,10 +459,10 @@ func (p OptSelector) log(args []string) (int, error) {
 
 	if volume == "" || !PathFileExists(volume) {
 		//print_Error(err.Error(), p.logger)
-		//fmt.Println(OPT_LOG_USAGE)
-		msg := fmt.Sprintf("Volume '%s' can not found.", volume)
-		print_Error(msg, p.logger)
-		return FAIL, fmt.Errorf(msg)
+		fmt.Println(OPT_LOG_USAGE)
+		return FAIL, fmt.Errorf("Volume '%s' can not found.", volume)
+		//print_Error(msg, p.logger)
+		//return FAIL, fmt.Errorf(msg)
 	}
 	return volume_commit_history(volume, p.logger)
 }
@@ -423,7 +471,7 @@ func (p OptSelector) rebase(args []string) (int, error) {
 
 	p.logger.Println("rebase", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	//return 0, nil
 }
 
 func (p OptSelector) reset(args []string) (int, error) {
@@ -445,21 +493,21 @@ func (p OptSelector) reset(args []string) (int, error) {
 	os.Args = custom_Args(args, "")
 	if len(args) <= 2 {
 		msg := "Too few arguments."
-		print_Error(msg, p.logger)
+		//print_Error(msg, p.logger)
 		fmt.Println(OPT_RESET_USAGE)
-		return FAIL, nil
+		return FAIL, fmt.Errorf(msg)
 	}
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
-		print_Error(err.Error(), p.logger)
+		//print_Error(err.Error(), p.logger)
 		fmt.Println(OPT_RESET_USAGE)
 		return FAIL, err
 	}
 	resetObj := ResetParams{time: -1, volume: return_AbsPath(args[0])}
 	if !PathFileExists(resetObj.volume) {
 		msg := "volume can not find."
-		print_Error(msg, p.logger)
-		fmt.Printf(OPT_RESET_USAGE)
+		//print_Error(msg, p.logger)
+		//fmt.Printf(OPT_RESET_USAGE)
 		return FAIL, fmt.Errorf(msg)
 	}
 	suffix := get_StringAfter(args[1], "HEAD")
@@ -470,7 +518,7 @@ func (p OptSelector) reset(args []string) (int, error) {
 		for _, ch := range suffix {
 			if ch != '^' {
 				msg := "invalid options."
-				print_Error(msg, p.logger)
+				//print_Error(msg, p.logger)
 				fmt.Printf(OPT_RESET_USAGE)
 				return FAIL, fmt.Errorf(msg)
 			}
@@ -481,7 +529,7 @@ func (p OptSelector) reset(args []string) (int, error) {
 		num, err := strconv.Atoi(suffix[1:])
 		if err != nil {
 			msg := "invalid options."
-			print_Error(msg, p.logger)
+			//	print_Error(msg, p.logger)
 			fmt.Printf(OPT_RESET_USAGE)
 			return FAIL, fmt.Errorf(msg)
 		}
@@ -512,23 +560,24 @@ func (p OptSelector) remote(args []string) (int, error) {
 	}
 	if len(args) < 1 {
 		msg := "Need specify <volume>"
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	volume := return_AbsPath(args[0])
 	if !PathFileExists(volume) {
-		msg := fmt.Sprintf("The specified volume '%s' can not be found.", volume)
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
-		return FAIL, fmt.Errorf(msg)
+
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("The specified volume '%s' can not be found.", volume)
+		//	return FAIL, fmt.Errorf(msg)
 	}
 	backingfile, err := return_Volume_BackingFile(&volume)
 	if err != nil || VerifyBackingFile(backingfile) != OK {
-		msg := fmt.Sprintf("Can not verify backing file of '%s'", volume)
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
-		return FAIL, fmt.Errorf(msg)
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("Can not verify backing file of '%s'", volume)
 	}
 	remoteObj := RemoteParams{
 		verbose:     options.Verbose,
@@ -536,10 +585,9 @@ func (p OptSelector) remote(args []string) (int, error) {
 	}
 	if !options.Verbose {
 		if ((options.Add || options.Rename || options.SetUrl) && len(args) < 3) || (options.Rename && len(args) < 2) {
-			msg := "Too few arguments."
-			print_Error(msg, p.logger)
-			flags.ParseArgs(&options, []string{"-h"})
-			return FAIL, fmt.Errorf(msg)
+			//flags.ParseArgs(&options, []string{"-h"})
+			p.Usage(&options)
+			return FAIL, fmt.Errorf("Too few arguments..")
 		}
 		if options.Add {
 			remoteObj.add.name = args[1]
@@ -561,7 +609,7 @@ func (p OptSelector) tag(args []string) (int, error) {
 
 	p.logger.Println("tag", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+	//return 0, nil
 }
 
 func (p OptSelector) config(args []string) (int, error) {
@@ -578,7 +626,7 @@ func (p OptSelector) config(args []string) (int, error) {
 	if options.Global != "" {
 		if len(args) < 1 {
 			msg := "Too few arguments."
-			print_Error(msg, p.logger)
+			//print_Error(msg, p.logger)
 			return FAIL, fmt.Errorf(msg)
 		}
 		configObj := GlobalConfig{}
@@ -586,9 +634,10 @@ func (p OptSelector) config(args []string) (int, error) {
 		err := LoadConfig(&configObj, &configPath)
 		//configObj := stConfigObj.(GlobalConfig)
 		if err != nil {
-			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
-			print_Error(msg, p.logger)
-			return FAIL, err
+			p.Usage(&options)
+			return FAIL, fmt.Errorf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
+			//print_Error(msg, p.logger)
+
 		}
 		if options.Global == "user.name" {
 			configObj.UserName = args[0]
@@ -608,8 +657,9 @@ func (p OptSelector) config(args []string) (int, error) {
 			}
 		} else {
 			msg := "unknow option."
-			print_Error(msg, p.logger)
-			flags.ParseArgs(&options, []string{"-h"})
+			//print_Error(msg, p.logger)
+			//flags.ParseArgs(&options, []string{"-h"})
+			p.Usage(&options)
 			return FAIL, fmt.Errorf(msg)
 		}
 		msg := Format_Success("Done.")
@@ -620,15 +670,16 @@ func (p OptSelector) config(args []string) (int, error) {
 		configPath := return_hb_ConfigPath()
 		err := LoadConfig(&configObj, &configPath)
 		if err != nil {
-			msg := fmt.Sprintf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
-			print_Error(msg, p.logger)
+			p.Usage(&options)
+			err := fmt.Errorf("Load configuration failed. Please check file '~/.hb/config.yaml' (%s)", err.Error())
 			return FAIL, err
 		}
 		interface_value, err := return_ConfigValue(&configObj, options.Get)
 		if err != nil {
-			msg := fmt.Sprintf("Load value of '%s' failed. (%s)", options.Get, err.Error())
-			print_Error(msg, p.logger)
-			return FAIL, err
+			p.Usage(&options)
+			return FAIL, fmt.Errorf("Load value of '%s' failed. (%s)", options.Get, err.Error())
+			//		print_Error(msg, p.logger)
+
 		}
 		value := interface_value.(GlobalConfig)
 
@@ -637,8 +688,9 @@ func (p OptSelector) config(args []string) (int, error) {
 		return OK, nil
 	} else {
 		msg := "Invalid option."
-		print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		//	print_Error(msg, p.logger)
+		//flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	return FAIL, nil
@@ -671,21 +723,20 @@ func (p OptSelector) before_commit_hooks(args []string) (int, error) {
 
 	p.logger.Println("before_commit_hooks", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+
 }
 
 func (p OptSelector) post_checkout_hooks(args []string) (int, error) {
 
 	p.logger.Println("post_checkout_hooks", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
+
 }
 
 func (p OptSelector) launch(args []string) (int, error) {
 
 	p.logger.Println("launch", args)
 	return FAIL, fmt.Errorf("Option unfinished.")
-	return 0, nil
 }
 
 func (p OptSelector) list(args []string) (int, error) {
@@ -715,17 +766,21 @@ func (p OptSelector) show(args []string) (int, error) {
 	//	return FAIL, fmt.Errorf("Option unfinished.")
 	if len(args) <= 1 {
 		msg := "Too few arguments.\n"
-		print_Error(msg, p.logger)
 		fmt.Println(OPT_SHOW_USAGE)
-		return FAIL, nil
+		return FAIL, fmt.Errorf(msg)
 	}
 	image, err := confirm_BackingFilePath(args[1])
 	if image == "" {
-		print_Error(err.Error(), p.logger)
+		//	print_Error(err.Error(), p.logger)
 		usage := OPT_SHOW_USAGE
 		fmt.Println(usage)
 		return FAIL, err
 	}
 
 	return show_template(image, p.logger)
+}
+
+func (p OptSelector) Usage(options interface{}) {
+
+	flags.ParseArgs(options, []string{"-h"})
 }

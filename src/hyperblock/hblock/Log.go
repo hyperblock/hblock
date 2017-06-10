@@ -10,17 +10,9 @@ import (
 func volume_commit_history(path string, logger *log.Logger) (int, error) {
 
 	print_Log("Fetching volume information...", logger)
-	// jsonVolume, err := return_JsonVolume(path)
-
-	// if err != nil {
-	// 	print_Error(err.Error(), logger)
-	// 	return FAIL, err
-	// }
-	// print_Log("Done.", logger)
-	// volumeInfo := return_VolumeInfo(&jsonVolume)
 	volumeInfo, err := return_VolumeInfo(&path)
 	if err != nil {
-		print_Error(err.Error(), logger)
+//		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log("Done.", logger)
@@ -28,9 +20,9 @@ func volume_commit_history(path string, logger *log.Logger) (int, error) {
 	backingFile := volumeInfo.backingFile
 	print_Log("Locate backing file path done.", logger)
 	print_Log("Fetching backing file information...", logger)
-	jsonBackingFile, err := return_JsonBackingFile(backingFile)
+	jsonBackingFile, err := return_JsonBackingFile(&backingFile)
 	if err != nil {
-		print_Error(err.Error(), logger)
+//		print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log("Done.", logger)

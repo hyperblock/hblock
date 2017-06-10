@@ -27,9 +27,9 @@ func format_commitMsg(msg string) string {
 func show_template(image string, logger *log.Logger) (int, error) {
 
 	print_Log("Fetching backing file info...", logger)
-	jsonBackingFile, err := return_JsonBackingFile(image)
+	jsonBackingFile, err := return_JsonBackingFile(&image)
 	if err != nil {
-		print_Error(err.Error(), logger)
+		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log("Done", logger)

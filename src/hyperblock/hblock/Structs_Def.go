@@ -5,9 +5,10 @@ import (
 )
 
 type InitParams struct {
-	name   string
-	size   int64
-	output string
+	name     string
+	size     int64
+	output   string
+	checkout bool
 }
 
 type CheckoutParams struct {
@@ -79,6 +80,8 @@ type CloneParams struct {
 	configPath  string
 	checkoutFlg bool
 	layerUUID   string
+	branch      string
+	hardLink    bool
 	protocol    int
 }
 
@@ -135,12 +138,44 @@ type YamlRemote struct {
 }
 
 type YamlBackingFileConfig struct {
-	Name   string       `yaml:"name"`
-	Remote []YamlRemote `yaml:"remote"`
-	Branch []YamlBranch `yaml:"branch"`
+	Name        string       `yaml:"name"`
+	Format      string       `yaml:"format"`
+	VirtualSize int64        `yaml:"virtual size"`
+	DefaultHead string       `yaml:"head"`
+	Remote      []YamlRemote `yaml:"remote"`
+	Branch      []YamlBranch `yaml:"branch"`
 }
 
 type YamlVolumeConfig struct {
 	Branch    string `yaml:"branch.name"`
 	NewBranch bool   `yaml:"branch.create"`
+}
+
+type PushParams struct {
+	remote string
+	volume string
+	branch string
+	url    string
+}
+
+type PullParams struct {
+	pullList       []string
+	branch         string
+	protocol       int
+	all            bool
+	remoteRepoPath string
+	configPath     string
+	localRepoPath  string
+}
+
+type DumpParams struct {
+	backngFile string
+	layerUUID  string
+	output     string
+}
+
+type RebaseParams struct {
+	backingfile string
+	volumePath  string
+	parentLayer string
 }

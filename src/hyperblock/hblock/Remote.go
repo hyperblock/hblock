@@ -7,13 +7,13 @@ import (
 
 func Remote(obj RemoteParams, logger *log.Logger) (int, error) {
 
-	configPath := obj.backingFile + ".yaml"
+	configPath := return_BackingFileConfig_Path(&obj.backingFile) //obj.backingFile + ".yaml"
 	configInfo := YamlBackingFileConfig{}
 	err := LoadConfig(&configInfo, &configPath)
 	if err != nil {
-		msg := fmt.Sprintf("Load config '%s' failed. (%s)", configPath, err.Error())
-		print_Error(msg, logger)
-		return FAIL, err
+		return FAIL, fmt.Errorf("Load config '%s' failed. (%s)", configPath, err.Error())
+		//		print_Error(msg, logger)
+		//	return FAIL, err
 	}
 	if obj.verbose {
 		ret := "\n"
@@ -28,9 +28,7 @@ func Remote(obj RemoteParams, logger *log.Logger) (int, error) {
 		print_Log(fmt.Sprintf("Add a remote host named: %s, url: %s", obj.add.name, obj.add.url), logger)
 		for _, item := range configInfo.Remote {
 			if item.Name == obj.add.name {
-				msg := fmt.Sprintf("Host name '%s' exists.", item.Name)
-				print_Error(msg, logger)
-				return FAIL, fmt.Errorf(msg)
+				return FAIL, fmt.Errorf("Host name '%s' exists.", item.Name)
 			}
 		}
 		remoteHost := YamlRemote{Name: obj.add.name, Url: obj.add.url}
@@ -47,9 +45,9 @@ func Remote(obj RemoteParams, logger *log.Logger) (int, error) {
 			}
 		}
 		if !found {
-			msg := fmt.Sprintf("Remote host '%s' doesn't exist.", obj.remove)
-			print_Error(msg, logger)
-			return FAIL, fmt.Errorf(msg)
+			return FAIL, fmt.Errorf("Remote host '%s' doesn't exist.", obj.remove)
+			//	print_Error(msg, logger)
+			//	return FAIL, fmt.Errorf(msg)
 		}
 	}
 	if obj.setUrl.name != "" {
@@ -63,9 +61,7 @@ func Remote(obj RemoteParams, logger *log.Logger) (int, error) {
 			}
 		}
 		if !found {
-			msg := fmt.Sprintf("Remote host '%s' doesn't exist.", obj.remove)
-			print_Error(msg, logger)
-			return FAIL, fmt.Errorf(msg)
+			return FAIL, fmt.Errorf("Remote host '%s' doesn't exist.", obj.remove)
 		}
 	}
 	if obj.remove != "" {
@@ -79,16 +75,27 @@ func Remote(obj RemoteParams, logger *log.Logger) (int, error) {
 			}
 		}
 		if !found {
-			msg := fmt.Sprintf("Remote host '%s' doesn't exist.", obj.remove)
-			print_Error(msg, logger)
-			return FAIL, fmt.Errorf(msg)
+			return FAIL, fmt.Errorf("Remote host '%s' doesn't exist.", obj.remove)
 		}
 	}
 	err = WriteConfig(&configInfo, &configPath)
 	if err != nil {
-		print_Error(err.Error(), logger)
+		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	print_Log(Format_Success("done."), logger)
 	return OK, nil
+}
+
+func setRemoteOrigin(configPath *string, url *string) error {
+
+	config := YamlBackingFileConfig{}
+	err := LoadConfig(&config, configPath)
+	if err != nil {
+		return err
+	}
+	origin := YamlRemote{Name: "origin", Url: *url}
+	config.Remote = []YamlRemote{origin}
+	err = WriteConfig(&config, configPath)
+	return err
 }
