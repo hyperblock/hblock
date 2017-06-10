@@ -14,6 +14,16 @@ func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 	obj.protocol = return_RepoPath_Type(obj.repoPath)
 	var err error
 	checkoutObj := CheckoutParams{}
+
+	print_Log("Initializating local hb directory...", logger)
+	hbDir, err := hb_Init()
+	if err != nil {
+		return FAIL, err
+	}
+	localRepoPath := hbDir + path.Base(obj.repoPath)
+	if PathFileExists(localRepoPath) {
+		return FAIL, fmt.Errorf("Repo ( %s ) is exists!", localRepoPath)
+	}
 	if obj.protocol == REPO_PATH_LOCAL {
 		checkoutObj, err = clone_Local(obj, logger)
 	} else if obj.protocol == REPO_PATH_HTTP {
@@ -29,6 +39,8 @@ func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
+	//localRepoConfig := return_BackingFileConfig_Path(&localRepoPath)
+
 	if obj.checkoutFlg {
 		defaultBranch := checkoutObj.branch
 		checkoutObj.branch = ""
@@ -68,6 +80,7 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 		//	print_Error(err.Error(), logger)
 		return checkoutRet, err
 	}
+
 	jsonVolume, err := return_JsonVolume(obj.repoPath)
 	//volFlag := false
 	if jsonVolume.BackingFile != "" {
@@ -127,7 +140,7 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 		if err != nil {
 			return checkoutRet, err
 		}
-
+		//	setLocalBranchTag(&pullObj.configPath, []string{pullObj.branch})
 		if !obj.checkoutFlg {
 			return checkoutRet, nil
 		}

@@ -7,6 +7,7 @@ import (
 type InitParams struct {
 	name     string
 	size     int64
+	format   string
 	output   string
 	checkout bool
 }

@@ -109,6 +109,7 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 				if err != nil {
 					return err
 				}
+				os.Remove(layer)
 				preLayer = layer
 			}
 		}
@@ -139,7 +140,6 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 		preLayer := ""
 		print_Log("Commit layers...", logger)
 		for i := len(layers) - 1; i >= 0; i-- {
-
 			layer := layers[i]
 			rebaseObj := RebaseParams{
 				volumePath:  layer,
@@ -158,10 +158,13 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 			if err != nil {
 				return err
 			}
+			os.Remove(layer)
 			preLayer = layer
 		}
 	}
-	return nil
+	print_Log("Update branch info...", logger)
+	return setLocalBranchTag(&obj.configPath, &obj.branch)
+	//	return nil
 }
 
 func downloadLayer(srcLayer, dstLayer *string) error {

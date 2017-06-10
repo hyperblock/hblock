@@ -526,3 +526,23 @@ func RemoveFiles(files []string) {
 		}
 	}
 }
+
+func setLocalBranchTag(configPath *string, branch *string) error {
+
+	config := YamlBackingFileConfig{}
+	err := LoadConfig(&config, configPath)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(config.Branch); i++ {
+		ok := config.Branch[i].Name == *branch
+		if ok {
+			config.Branch[i].Local = 1
+		}
+	}
+	if err = WriteConfig(&config, configPath); err != nil {
+		return err
+	}
+	return nil
+}

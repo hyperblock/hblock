@@ -16,13 +16,13 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 	print_Log("Init hb directory.", logger)
 	_, err := hb_Init()
 	if err != nil {
-	//	print_Error(err.Error(), logger)
+		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	//if PathFileExists(obj.name) {
 	if VerifyBackingFile(obj.name) == OK {
-	//	print_Error("Already exist.", logger)
-		return FAIL, nil
+		return FAIL, fmt.Errorf("Already exist.")
+		//	return FAIL, nil
 	}
 	print_Log("Create backing file config file.", logger)
 	configPath := return_BackingFileConfig_Path(&obj.name) //obj.name + ".yaml"
@@ -30,6 +30,7 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		Name:        path.Base(obj.name),
 		VirtualSize: obj.size,
 		DefaultHead: "master",
+		Format:      obj.format,
 	}
 	err = WriteConfig(&yamlConfig, &configPath)
 	if err != nil {
@@ -51,6 +52,9 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 
 	checkoutObj := CheckoutParams{layer: "", output: obj.output, template: obj.name}
 	ret, err := volume_checkout(&checkoutObj, logger)
+	if err != nil {
+		return FAIL, err
+	}
 	if ret == OK {
 		checkoutObj.branch = "master"
 		checkoutObj.volume = obj.output

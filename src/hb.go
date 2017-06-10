@@ -63,7 +63,7 @@ func main() {
 	//status, err :=
 	//	args = strings.Split("hb clone /var/www/html/repo/test", " ")
 	//args = strings.Split("hb push origin master -v test/test", " ")
-	//	args = strings.Split("hb init t1 --size 10G", " ")
+	//args = strings.Split("hb init tes12t1 -f qcow2 --size 10G", " ")
 	_, err = optSelector.SendCommand(args[1:])
 	if err != nil {
 		hblock.Print_Error(err.Error(), logger)

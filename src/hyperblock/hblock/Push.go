@@ -32,14 +32,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 	if obj.url == "" {
 		return FAIL, fmt.Errorf("Can not found remote '%s', use 'hb remote --add' to add a new remote host.", obj.remote)
 	}
-	branchHead := func() string {
-		for _, item := range backingFileConfig.Branch {
-			if item.Name == obj.branch {
-				return item.Head
-			}
-		}
-		return ""
-	}()
+	branchHead := return_BranchHead(&obj.branch, &backingFileConfig.Branch)
 	if branchHead == "" {
 		return FAIL, fmt.Errorf("Branch '%s' doesn't in volume. use 'hb branch <volume> to see all branches.", obj.branch)
 	}
@@ -87,6 +80,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 		}
 	}
 	print_Log(msg+"OK\n", logger)
+	print_Log(Format_Success("Done."), logger)
 	return OK, nil
 }
 

@@ -89,8 +89,9 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 func (p OptSelector) init(args []string) (int, error) {
 
 	var options struct {
-		Size   string `long:"size" description:"[required] Disk size(M/G) of template.\n\t\t\t    eg.\n\t\t\t\thblock init template0 --size=500M.\n"`
+		Size   string `long:"size" description:"[required] Disk size(M/G) of template.\n\t\t\t    eg.\n\t\t\t\thblock init template0 --size=500M -f qcow2.\n"`
 		Output string `short:"o" description:"[optional] Output volume name.\n"`
+		Format string `short:"f" long:"format" description:"'qcow2' of 'lvm'.\n"`
 	}
 	os.Args = custom_Args(args, "<template name>")
 	args, err := flags.ParseArgs(&options, args[1:])
@@ -109,17 +110,13 @@ func (p OptSelector) init(args []string) (int, error) {
 			print_Log(msg, p.logger)
 		}
 	} else {
-		msg := "Can't get template name."
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
+		msg := "Can't get backingfile name."
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 
 	if options.Size == "" {
 		msg := "--size is required."
-		//print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -143,12 +140,16 @@ func (p OptSelector) init(args []string) (int, error) {
 			options.Output = templateName[index+1:]
 		}
 	}
+	if options.Format == "" {
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("Need specify format.")
+	}
 	//	fmt.Println(templateName)
 	if !directPathFlg {
 		templateDir, _ := return_TemplateDir()
 		templateName = templateDir + "/" + templateName
 	}
-	obj := InitParams{name: templateName, size: sizeI64, output: options.Output, checkout: true}
+	obj := InitParams{name: templateName, size: sizeI64, output: options.Output, checkout: true, format: options.Format}
 	msg := fmt.Sprintf("Init template named '%s' and new volume '%s'", templateName, obj.output)
 	print_Log(msg, p.logger)
 	return create_empty_template(obj, p.logger)

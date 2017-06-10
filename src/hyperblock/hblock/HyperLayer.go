@@ -42,32 +42,37 @@ func CreateHyperLayer(fmt_tag int, backingfilePath_Or_format *string) (HyperLaye
 	return ret, ret.check_Command()
 }
 
-func (h HyperLayer) SetArgs(_args []string) {
+func (h *HyperLayer) SetArgs(_args []string) {
 
 	h.args = _args
 }
 
-func (h HyperLayer) check_Command() error {
+func (h *HyperLayer) check_Command() (err error) {
 
+	cmd := ""
 	if h.format == FMT_UNKNOWN {
 		return fmt.Errorf("Format unknow.")
 	}
+
 	if h.format == FMT_QCOW2 {
-		cmd, err := exec.LookPath("qcow2-img")
+		cmd, err = exec.LookPath("qcow2-img")
 		if err != nil {
 			return fmt.Errorf("Command 'qcow2-img' not found. ( %s )", err.Error())
 		}
-		h.cmd = cmd
-		return nil
+		//h.cmd = cmd
+		//return nil
 	}
 	if h.format == FMT_LVM {
 		return fmt.Errorf("LVM command unfinished.")
 	}
+	h.cmd = cmd
+
 	return nil
 }
 
-func (h HyperLayer) runCommand(args []string) (err error) {
+func (h *HyperLayer) runCommand(args []string) (err error) {
 
+	print_Trace(fmt.Sprintf("%s %s", h.cmd, args))
 	commitCmd := exec.Command(h.cmd, args[0:]...)
 	result, err := commitCmd.Output()
 	if err != nil {
@@ -77,7 +82,7 @@ func (h HyperLayer) runCommand(args []string) (err error) {
 	return nil
 }
 
-func (h HyperLayer) Commit(obj *CommitParams) error {
+func (h *HyperLayer) Commit(obj *CommitParams) error {
 
 	print_Trace("HyperLayer.Commit.")
 	commitArgs := []string{"commit", "-m", obj.commitMsg, "-s", obj.layerUUID, obj.volumeName}
