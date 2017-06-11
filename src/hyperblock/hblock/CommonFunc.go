@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
@@ -542,6 +544,64 @@ func setLocalBranchTag(configPath *string, branch *string) error {
 		}
 	}
 	if err = WriteConfig(&config, configPath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func branchConflict(repoURL, branchName string, localLayers []string) (bool, error) {
+
+	remoteConfigPath := return_BackingFileConfig_Path(&repoURL)
+	//r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	//tmpConfig := fmt.Sprintf("%s/%s.%d", os.TempDir(), path.Base(remoteConfigPath), r.Intn(100000))
+	tmpConfig := fmt.Sprintf("%s/%s", os.TempDir(), path.Base(remoteConfigPath))
+	print_Trace(fmt.Sprintf("Download remote config to local.(%s)", tmpConfig))
+	if err := downloadFile(&remoteConfigPath, &tmpConfig); err != nil {
+		if err.Error() == "404" {
+			return false, nil
+		}
+		return false, err
+	}
+	remoteConfig := YamlBackingFileConfig{}
+	if err := LoadConfig(&remoteConfig, &tmpConfig); err != nil {
+		os.Remove(tmpConfig)
+		return true, err
+	}
+	head := return_BranchHead(&branchName, &remoteConfig.Branch)
+	if head == "" {
+		return false, nil
+	}
+	for _, layerUUID := range localLayers {
+		if head == layerUUID {
+			return false, nil
+		}
+	}
+	os.Remove(tmpConfig)
+	return true, nil
+}
+
+func downloadFile(url, localPath *string) error {
+
+	respConfig, err := http.Get(*url)
+	if err != nil {
+		msg := fmt.Errorf("Fetch: %v", err)
+		return msg
+	}
+	if respConfig.StatusCode == 404 {
+		return fmt.Errorf("404")
+	}
+	defer respConfig.Body.Close()
+	configDst, err := os.OpenFile(*localPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer configDst.Close()
+	configBuff, err := ioutil.ReadAll(respConfig.Body)
+	if err != nil {
+		return err
+	}
+	_, err = configDst.Write(configBuff)
+	if err != nil {
 		return err
 	}
 	return nil

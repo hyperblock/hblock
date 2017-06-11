@@ -31,7 +31,7 @@ func main() {
 	logDir := hb_Dir + "/log"
 	_, err = os.Stat(logDir)
 	if err != nil {
-		fmt.Println(hblock.Format_Warning("Hyperblock log directory doesn't exists, will create..."))
+		fmt.Println(hblock.Format_Warning("Hyperbblock log directory doesn't exists, will create..."))
 		if os.IsNotExist(err) {
 			err = os.Mkdir(logDir, 0755)
 			if err != nil {
@@ -59,11 +59,8 @@ func main() {
 	optSelector := hblock.CreateOptSelector(logger)
 	//	args := []string{"init", "--name", "hehe", "--size", "2G"}
 	args := os.Args
-	//	fmt.Println(args)
-	//status, err :=
-	//	args = strings.Split("hb clone /var/www/html/repo/test", " ")
-	//args = strings.Split("hb push origin master -v test/test", " ")
-	//args = strings.Split("hb init tes12t1 -f qcow2 --size 10G", " ")
+
+	//args = strings.Split("hb clone http://localhost/repo/test -b branch1", " ")
 	_, err = optSelector.SendCommand(args[1:])
 	if err != nil {
 		hblock.Print_Error(err.Error(), logger)

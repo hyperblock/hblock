@@ -160,6 +160,8 @@ type PushParams struct {
 }
 
 type PullParams struct {
+	volume         string
+	remote         string
 	pullList       []string
 	branch         string
 	protocol       int

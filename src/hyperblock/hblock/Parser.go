@@ -202,11 +202,11 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	var options struct {
 		Volume string `short:"v" long:"vol" description:"<volume_name> <layer | branch> Specify the volume name which needs to be update(restore).\n"`
 
-		Template string `short:"t" long:"backingfile" description:"<backingfile> <layer | branch> Create a new volume from <backingfile>.\n"`
+		Backingfile string `short:"t" long:"backingfile" description:"<backingfile> <layer | branch> Create a new volume from <backingfile>.\n"`
 
-		Output string `short:"o" long:"output" description:"<output_volume_path> [required if use '-t'] .\n"`
+		Output string `short:"o" long:"output" description:"<output_volume_path>.\n"`
 
-		Branch string `short:"b" description:"<branch> <volume_name> Create a new branch of specified volume.\n"`
+		Branch string `short:"b" long:"branch" description:"<branch> <volume_name> Create a new branch of specified volume.\n"`
 
 		Force bool `short:"f" long:"force.\n"`
 	}
@@ -220,12 +220,12 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	if options.Template != "" && options.Volume != "" {
+	if options.Backingfile != "" && options.Volume != "" {
 		msg := "Can't use both -v and -t."
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	if options.Branch != "" && options.Template != "" {
+	if options.Branch != "" && options.Backingfile != "" {
 		msg := "Can't use both -t and -b."
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
@@ -235,12 +235,12 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	if options.Branch == "" && (options.Template != "" && options.Output == "") {
+
+	if options.Branch == "" && (options.Backingfile != "" && options.Output == "") {
 		msg := "use -o <output_volume_path> to set output volume file. "
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-
 	if options.Volume != "" {
 		options.Volume = return_AbsPath(options.Volume)
 		_, err := os.Stat(options.Volume)
@@ -261,11 +261,15 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	if options.Branch != "" {
 		options.Volume = return_AbsPath(args[0])
 	}
-
+	if options.Volume == "" && options.Backingfile == "" {
+		msg := "Need specify <volume> or <backingfile>."
+		p.Usage(&options)
+		return FAIL, fmt.Errorf(msg)
+	}
 	checkoutObj := CheckoutParams{
 		volume:   options.Volume,
 		output:   options.Output,
-		template: options.Template,
+		template: options.Backingfile,
 	}
 	if options.Branch != "" {
 		checkoutObj.branch = options.Branch
@@ -347,8 +351,28 @@ func (p OptSelector) clone(args []string) (int, error) {
 
 func (p OptSelector) pull(args []string) (int, error) {
 
-	p.logger.Println("pull", args)
-	return FAIL, fmt.Errorf("Option unfinished.")
+	//	p.logger.Println("pull", args)
+	//return FAIL, fmt.Errorf("Option unfinished.")
+	var options struct {
+		Volume string `short:"v" long:"volume"`
+	}
+	os.Args = custom_Args(args, "<remote> <branch>")
+	args, err := flags.ParseArgs(&options, args[1:])
+	if err != nil {
+		return FAIL, nil
+	}
+	if len(args) < 2 || options.Volume == "" {
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("Too few arguments")
+	}
+
+	pullObj := PullParams{
+		branch: args[1],
+		volume: return_AbsPath(options.Volume),
+		remote: args[0],
+		all:    false,
+	}
+	return volume_PullBranch(&pullObj, p.logger)
 	//return 0, nil
 }
 

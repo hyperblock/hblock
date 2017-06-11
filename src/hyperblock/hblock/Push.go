@@ -43,7 +43,15 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 		//print_Error(err.Error(), logger)
 		return FAIL, err
 	}
+	if isConflict, err := branchConflict(obj.url, obj.branch, layerUUIDs); isConflict || err != nil {
+		if err == nil && isConflict {
+			return FAIL, fmt.Errorf("There is a conflict between local branch '%s' and remote. Use 'hb pull' to fetch remote branch or 'hb branch --rename' to rename local branch.", obj.branch)
+		} else {
+			return FAIL, err
+		}
+	}
 	layerFiles := []string{}
+	defer RemoveFiles(layerFiles)
 	for _, layer := range layerUUIDs {
 		fileName := volumeInfo.backingFile + "." + layer
 		print_Log(fmt.Sprintf("\rDump layer ( uuid = %s )......", layer), logger)
@@ -68,52 +76,59 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 
 	index := 0
 	msg := ""
+	repoDir := func() string {
+		p := strings.LastIndex(obj.url, "/")
+		return obj.url[0 : p+1]
+	}()
 	for _, fileName := range layerFiles {
 		index++
-		msg = fmt.Sprintf("\rPush objects (%d/%d)......", index, len(layerFiles))
+		msg = fmt.Sprintf("\rPush layers (%d/%d)......", index, len(layerFiles))
 		print_Log(msg, logger)
-		p := strings.LastIndex(obj.url, "/")
-		url := obj.url[0:p+1] + path.Base(fileName)
+		url := repoDir + path.Base(fileName)
 		putError := httpPut(fileName, url)
 		if putError != nil {
 			return FAIL, fmt.Errorf("%sFail ( %s )", msg, err.Error())
 		}
 	}
 	print_Log(msg+"OK\n", logger)
+	print_Log("Update local config.and push to remote...", logger)
+	tmpDir := os.TempDir()
+	tmpPath := tmpDir + "/" + path.Base(configPath)
+	if PathFileExists(tmpPath) == false {
+		_, err = CopyFile(tmpPath, configPath)
+		if err != nil {
+			return FAIL, err
+		}
+	}
+	LoadConfig(&backingFileConfig, &tmpPath)
+	defer os.Remove(tmpPath)
+	for i := range backingFileConfig.Branch {
+		backingFileConfig.Branch[i].Local = 0
+		if backingFileConfig.Branch[i].Name == obj.branch {
+			backingFileConfig.Branch[i].Head = branchHead
+		}
+	}
+	err = WriteConfig(&backingFileConfig, &tmpPath)
+	if err != nil {
+		return FAIL, err
+	}
+	remoteConfigUrl := repoDir + path.Base(tmpPath)
+	print_Log(fmt.Sprintf("Push config to %s.", remoteConfigUrl), logger)
+	if err = httpPut(tmpPath, remoteConfigUrl); err != nil {
+		return FAIL, err
+	}
 	print_Log(Format_Success("Done."), logger)
 	return OK, nil
 }
 
 func httpPut(filename string, targetUrl string) error {
 
-	// bodyBuf := &bytes.Buffer{}
-	// bodyWriter := multipart.NewWriter(bodyBuf)
-
-	// //关键的一步操作
-	// fileWriter, err := bodyWriter.CreateFormFile("uploadfile", filename)
-	// if err != nil {
-	// 	//	fmt.Println("error writing to buffer")
-	// 	return err
-	// }
-
-	//打开文件句柄操作
 	fh, err := os.Open(filename)
 	if err != nil {
 		//	fmt.Println("error opening file")
 		return err
 	}
 	defer fh.Close()
-	//iocopy
-	// _, err = io.Copy(fileWriter, fh)
-	// if err != nil {
-	// 	return err
-	// }
-
-	//	contentType := bodyWriter.FormDataContentType()
-	//bodyWriter.Close()
-
-	//resp, err := http.Post(targetUrl, contentType, bodyBuf)
-	//resp, err := http.Post(targetUrl, "application/octet-stream", bodyBuf)
 	req, err := http.NewRequest("PUT", targetUrl, fh)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	resp, err := (&http.Client{}).Do(req)

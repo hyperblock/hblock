@@ -6,7 +6,37 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
+
+func volume_PullBranch(obj *PullParams, logger *log.Logger) (int, error) {
+
+	print_Log("Verify backingfile info...", logger)
+	var err error
+	obj.localRepoPath, err = return_Volume_BackingFile(&obj.volume)
+	if err != nil {
+		return FAIL, err
+	}
+	if dRet := VerifyBackingFile(obj.localRepoPath); dRet != OK {
+		return FAIL, fmt.Errorf("Fail. ( ErrCode: %d )", dRet)
+	}
+	obj.configPath = return_BackingFileConfig_Path(&obj.localRepoPath)
+	backingfileConfig := YamlBackingFileConfig{}
+	print_Log("Load backingfile's config...", logger)
+	if err = LoadConfig(&backingfileConfig, &obj.configPath); err != nil {
+		return FAIL, err
+	}
+
+	obj.remoteRepoPath = return_RemoteUrl(&backingfileConfig.Remote, &obj.remote)
+	if obj.remoteRepoPath == "" {
+		return FAIL, fmt.Errorf("Remote ('%s')'s URL can not be found.", obj.remote)
+	}
+	if err = PullBranch(obj, logger); err != nil {
+		return FAIL, err
+	}
+	print_Log(Format_Success("Done."), logger)
+	return OK, nil
+}
 
 func PullDefaultBranch(obj *PullParams, logger *log.Logger) error {
 
@@ -115,12 +145,13 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 		}
 	} else if obj.protocol == REPO_PATH_HTTP {
 		layers := []string{}
+		defer RemoveFiles(layers)
 		head := obj.pullList[0]
 		for {
 			if head == "" {
 				break
 			}
-			print_Log("\rDownload layer (%s)", logger)
+			print_Log(fmt.Sprintf("\rDownload layer (%s)...", head), logger)
 			remoteLayerUrl := return_LayerName(obj.remoteRepoPath, head)
 			localLayerPath := return_LayerName(obj.localRepoPath, head)
 			err := downloadLayer(&remoteLayerUrl, &localLayerPath)
@@ -158,8 +189,9 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 			if err != nil {
 				return err
 			}
-			os.Remove(layer)
-			preLayer = layer
+			//	os.Remove(layer)
+			dot := strings.LastIndex(layer, ".")
+			preLayer = layer[dot+1:]
 		}
 	}
 	print_Log("Update branch info...", logger)

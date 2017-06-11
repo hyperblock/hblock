@@ -2,9 +2,7 @@ package hblock
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path"
 )
@@ -36,11 +34,8 @@ func clone_Repo(obj *CloneParams, logger *log.Logger) (int, error) {
 		return FAIL, fmt.Errorf(msg)
 	}
 	if err != nil {
-		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	//localRepoConfig := return_BackingFileConfig_Path(&localRepoPath)
-
 	if obj.checkoutFlg {
 		defaultBranch := checkoutObj.branch
 		checkoutObj.branch = ""
@@ -77,12 +72,10 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 	checkoutRet := CheckoutParams{}
 	hbDir, err := hb_Init()
 	if err != nil {
-		//	print_Error(err.Error(), logger)
 		return checkoutRet, err
 	}
 
 	jsonVolume, err := return_JsonVolume(obj.repoPath)
-	//volFlag := false
 	if jsonVolume.BackingFile != "" {
 		volumeInfo := convert_to_VolumeInfo(&jsonVolume)
 		backingfile := volumeInfo.backingFile
@@ -213,28 +206,14 @@ func clone_Http(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 
 func downloadConfig(configPath *string) (string, error) {
 
-	respConfig, err := http.Get(*configPath)
-	if err != nil {
-		msg := fmt.Errorf("Fetch: %v", err)
-		return "", msg
-	}
-	defer respConfig.Body.Close()
 	currentDir, err := return_CurrentDir()
 	if err != nil {
 		return "", err
 	}
+
 	targetConfigPath := currentDir + DEFALUT_BACKING_FILE_DIR + "/" + path.Base(*configPath)
-	configDst, err := os.OpenFile(targetConfigPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return "", err
-	}
-	defer configDst.Close()
-	configBuff, err := ioutil.ReadAll(respConfig.Body)
-	if err != nil {
-		return "", err
-	}
-	_, err = configDst.Write(configBuff)
-	if err != nil {
+
+	if err = downloadFile(configPath, &targetConfigPath); err != nil {
 		return "", err
 	}
 	return targetConfigPath, nil
