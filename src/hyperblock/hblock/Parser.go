@@ -100,7 +100,7 @@ func (p OptSelector) init(args []string) (int, error) {
 		Output string `short:"o" description:"[optional] Output volume name.\n"`
 		Format string `short:"f" long:"format" description:"'qcow2' of 'lvm'.\n"`
 	}
-	os.Args = custom_Args(args, "<template name>")
+	os.Args = custom_Args(args, "<backingfile name>")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//	print_Error(err.Error(), p.logger)
