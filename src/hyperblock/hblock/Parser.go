@@ -79,10 +79,17 @@ func (p OptSelector) SendCommand(args []string) (int, error) {
 		return p.list(args)
 	case "show":
 		return p.show(args)
+	case "-h":
+		fmt.Println(GLOBAL_HELP)
+		return OK, nil
+	case "--help":
+		fmt.Println(GLOBAL_HELP)
+		return OK, nil
 	default:
-		msg := "invalid option, and there is no --help :)"
+		//msg := "invalid option, and there is no --help :)"
+		msg := GLOBAL_HELP
 		//	print_Error(msg, p.logger)
-		return FAIL, fmt.Errorf(msg, p.logger)
+		return FAIL, fmt.Errorf(msg)
 	}
 }
 
@@ -169,6 +176,7 @@ func (p OptSelector) branch(args []string) (int, error) {
 		Volume string `short:"v" long:"volume"`
 	}
 	//os.Args = custom_Args(args, "highlight last commit branch head. ")
+	os.Args = custom_Args(args, "")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		return FAIL, nil
@@ -328,7 +336,7 @@ func (p OptSelector) clone(args []string) (int, error) {
 		//			Volume string `short:"v" long:"vol" description:"<volume_name>\tSpecify the volume name which needs to be update(restore).\n"`
 		Layer string `short:"l" long:"layer" description:"Checkout <layer> instead of the HEAD\n"`
 
-		HardLink bool `long:"--hardlink" description:"use local hardlinks.\n"`
+		HardLink bool `long:"hardlink" description:"use local hardlinks.\n"`
 
 		Branch string `short:"b" long:"branch" description:"Clone the specified <branch> instead of default ('master').\n"`
 
@@ -446,14 +454,14 @@ func (p OptSelector) log(args []string) (int, error) {
 	if len(args) <= 1 {
 		msg := "Too few arguments."
 		//print_Error(msg, p.logger)
-		fmt.Println(OPT_LOG_USAGE)
+		//	fmt.Println(OPT_LOG_USAGE)
 		return FAIL, fmt.Errorf(msg)
 	}
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//print_Error(err.Error(), p.logger)
-		fmt.Println(OPT_LOG_USAGE)
-		return FAIL, err
+		//	fmt.Println(OPT_LOG_USAGE)
+		return FAIL, nil
 	}
 	//fmt.Println(args[0])
 	//volume, err := confirm_BackingFilePath(args[0])
@@ -461,7 +469,7 @@ func (p OptSelector) log(args []string) (int, error) {
 
 	if volume == "" || !PathFileExists(volume) {
 		//print_Error(err.Error(), p.logger)
-		fmt.Println(OPT_LOG_USAGE)
+		//fmt.Println(OPT_LOG_USAGE)
 		return FAIL, fmt.Errorf("Volume '%s' can not found.", volume)
 		//print_Error(msg, p.logger)
 		//return FAIL, fmt.Errorf(msg)
@@ -759,11 +767,14 @@ func (p OptSelector) launch(args []string) (int, error) {
 
 func (p OptSelector) list(args []string) (int, error) {
 
-	print_Trace(args)
+	if args[1] == "-h" || args[1] == "--help" {
+		fmt.Println(OPT_LIST_USAGE)
+		return OK, nil
+	}
 	targetdir, _ := return_CurrentDir()
 	targetdir += "/" + DEFALUT_BACKING_FILE_DIR
 	if len(args) > 1 {
-		targetdir = args[1]
+		targetdir = return_AbsPath(args[1])
 	}
 	dir, err := ioutil.ReadDir(targetdir)
 	if err != nil {
@@ -782,6 +793,10 @@ func (p OptSelector) show(args []string) (int, error) {
 
 	p.logger.Println("show", args)
 	//	return FAIL, fmt.Errorf("Option unfinished.")
+	if args[1] == "-h" || args[1] == "--help" {
+		fmt.Println(OPT_SHOW_USAGE)
+		return OK, nil
+	}
 	if len(args) <= 1 {
 		msg := "Too few arguments.\n"
 		fmt.Println(OPT_SHOW_USAGE)

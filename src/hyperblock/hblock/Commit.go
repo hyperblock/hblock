@@ -82,8 +82,6 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		err = reset_BranchHead(obj)
 	}
 	if err != nil {
-		//		print_Log("Failed.", logger)
-		//	print_Error(err.Error(), logger)
 		return FAIL, err
 	}
 	WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
@@ -98,12 +96,5 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		}
 		volume_checkout(&checkoutObj, logger)
 	}
-	// volumeLog := JsonLog{
-	// 	Operation:  "commit",
-	// 	UUID:       obj.snapshot,
-	// 	Info:       obj.commitMsg,
-	// 	VolumeName: obj.volumeName,
-	// }
-	// push_Log(volumeLog, logger)
 	return OK, nil
 }

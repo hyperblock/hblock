@@ -5,7 +5,7 @@ package hblock
 // 	currentDir string
 // 	err        error
 // }
-const SHOW_TRACE = 1
+const SHOW_TRACE = 0
 
 const WAIT_CHANGE_LAYER = 1
 
@@ -86,6 +86,11 @@ const LAYER_INFO_FORMAT = `
 %s
 `
 
+const OPT_LIST_USAGE = `Usage:
+	hb list
+	hb list <dir_path>
+`
+
 const OPT_RESET_USAGE = `Usage:
 	hb reset <volume> [<commit_uuid>] | [HEAD point]	reset <volume> and discard changes.
 	eg.
@@ -96,3 +101,27 @@ const OPT_RESET_USAGE = `Usage:
 
 // const DEFALUT_TEMPLATE_DIR = "backing_file"
 // const DEFAULT_VL_LOG_DIR = "volume_logs"
+const GLOBAL_HELP = `hb is hyperblock CLI and SDK library.
+
+Usage:
+    hb <command> [options]
+
+	Note. use 'hb <command> -h' to see detail.
+
+    ======== support commands =======
+
+	init            create empty backingfile
+	config          get and set global options
+	clone           clone a repository from remote or local path
+	remote          manage set of tracked repositories
+	rebase          reapply volume's backingfile and parent-layer 
+	branch          list,create or delete branches
+	checkout        switch branches or restore volume
+	commit          record volume's changes
+	reset           reset current HEAD to the specified state
+	pull            fetch from and integrate with another repository of a local branch
+	push            update remote repository
+	list            list backingfiles in current workspace
+	show            show backingfile's detail
+	log             show commit logs
+`
