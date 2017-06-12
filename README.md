@@ -1,7 +1,9 @@
 # hblock
-hyper block command line tools and SDK library.
+hyper block command line tools and SDK library. 
 
-Currently support VM format 'qcow2', and 'lvm' will be supported in the near future
+Main page: http://www.hyperblock.org
+
+_Currently support VM format 'qcow2', and 'lvm' will be supported in the near future_
 
 ## Installation
 
@@ -15,8 +17,9 @@ compile srouce code from https://github.com/hyperblock/qemu/tree/hyper-block, us
         * go.uuid       github.com/satori/go.uuid
         * libguestfs    libguestfs.org/guestfs
         
-    2. use __'go build hb.go'__ and create a soft link.
+    * use __'go build hb.go'__ and create a soft link.
 
+3. Need a __WebDAV__ server if use some remote options.
 
 ## How to use 
 
@@ -45,7 +48,7 @@ compile srouce code from https://github.com/hyperblock/qemu/tree/hyper-block, us
     Usage:
       hb init <template name> [OPTIONS]
     
-    Application Options:
+    Application Options:  
           --size=   [required] Disk size(M/G) of template.
                     eg.
                     hblock init template0 --size=500M -f qcow2.
