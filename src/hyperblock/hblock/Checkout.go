@@ -16,15 +16,13 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	if obj.branch != "" {
 		print_Log(fmt.Sprintf("Create new branch '%s' (cached)", obj.branch), logger)
 		volumeConfigPath := return_Volume_ConfigPath(&obj.volume)
-		yamlVolumeConfig := YamlVolumeConfig{}
-		err := LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
-		if err != nil {
-			//	print_Error(err.Error(), logger)
-			return FAIL, err
-		}
-		yamlVolumeConfig.Branch = obj.branch
-		yamlVolumeConfig.NewBranch = true
-		err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
+		yamlVolumeConfig := YamlVolumeConfig{Branch: obj.branch, NewBranch: true}
+		// err := LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
+		// if err != nil {
+		// 	//	print_Error(err.Error(), logger)
+		// 	return FAIL, err
+		// }
+		err := WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
 		if err != nil {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err

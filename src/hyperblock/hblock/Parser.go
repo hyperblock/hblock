@@ -162,18 +162,18 @@ func (p OptSelector) branch(args []string) (int, error) {
 
 		All bool `short:"a" long:"all" description:"list both remote-tracking and local branches.\n"`
 
-		// Output string `short:"o" long:"output" description:"[required if use \\'-t\\'] <output_volume_path>.\n"`
+		Move string `short:"m" long:"move" description:"<exist_branch> <new_branch> move/rename a branch.\n"`
 
-		// Template string `short:"t" long:"template" description:"<template_name>\t Create a new volume from template.\n"`
+		BackingFile string `short:"t" long:"backingfile" description:"required if use '-m'\n"`
 
-		// Force bool `short:"f" long:"force.\n"`
+		Volume string `short:"v" long:"volume"`
 	}
-	os.Args = custom_Args(args, "<volume name> highlight last commit branch head. ")
+	//os.Args = custom_Args(args, "highlight last commit branch head. ")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		return FAIL, nil
 	}
-	if len(args) < 1 {
+	if options.Volume == "" && (options.Move != "" && options.BackingFile == "") {
 		msg := "Too few arguments. Need specify <volume name>"
 		//	print_Error(msg, p.logger)
 		flags.ParseArgs(&options, []string{"-h"})
@@ -182,18 +182,31 @@ func (p OptSelector) branch(args []string) (int, error) {
 	if !(options.List || options.All) {
 		options.List = true
 	}
-	volume := return_AbsPath(args[0])
-	if !PathFileExists(volume) {
-		msg := fmt.Sprintf("Volume '%s' not found.", volume)
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
-		p.Usage(&options)
-		return FAIL, fmt.Errorf(msg)
-	}
+
 	branchParams := BranchParams{
-		volumePath: volume, list: options.List, show_all: options.All,
+		list: options.List, show_all: options.All, optTag: BRANCH_OPT_SHOW,
 	}
-	return show_Branch_Info(&branchParams, p.logger)
+	if options.Volume != "" {
+		branchParams.volumePath = return_AbsPath(options.Volume)
+		if !PathFileExists(branchParams.volumePath) {
+			msg := fmt.Sprintf("Volume '%s' not found.", branchParams.volumePath)
+			//	print_Error(msg, p.logger)
+			//flags.ParseArgs(&options, []string{"-h"})
+			p.Usage(&options)
+			return FAIL, fmt.Errorf(msg)
+		}
+	} else if options.Move != "" {
+		if options.BackingFile == "" {
+			msg := "need '-t' to set <backingfile>."
+			p.Usage(&options)
+			return FAIL, fmt.Errorf(msg)
+		}
+		branchParams.move.src = options.Move
+		branchParams.move.dst = args[0]
+		branchParams.optTag = BRANCH_OPT_MV
+		branchParams.backingfile = return_Backingfile_AbsPath(options.BackingFile)
+	}
+	return volume_Branch(&branchParams, p.logger)
 
 }
 

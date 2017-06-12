@@ -5,25 +5,60 @@ import (
 	"log"
 )
 
-func show_Branch_Info(branchParams *BranchParams, logger *log.Logger) (int, error) {
+func volume_Branch(obj *BranchParams, logger *log.Logger) (int, error) {
 
-	volumeInfo, err := return_VolumeInfo(&branchParams.volumePath)
-	if err != nil {
-		//	print_Error(err.Error(), logger)
-		return FAIL, err
+	backingfile := obj.backingfile
+	layer := ""
+	if obj.volumePath != "" {
+		volumeInfo, err := return_VolumeInfo(&obj.volumePath)
+		if err != nil {
+			//	print_Error(err.Error(), logger)
+			return FAIL, err
+		}
+		backingfile = volumeInfo.backingFile
+		layer = volumeInfo.layer
 	}
-	backingfile := volumeInfo.backingFile
-	layer := volumeInfo.layer
 	configPath := return_BackingFileConfig_Path(&backingfile) //backingfile + ".yaml"
-	yamlConfig := YamlBackingFileConfig{}
-	err = LoadConfig(&yamlConfig, &configPath)
+	err := LoadConfig(&obj.backingFileConfig, &configPath)
 	if err != nil {
 		return FAIL, fmt.Errorf("Load backing file '%s' config failed. ( %s )", configPath, err.Error())
 	}
-	branchs := yamlConfig.Branch
+	if obj.optTag == BRANCH_OPT_SHOW {
+		return show_Branch(obj, &layer, logger)
+	}
+	if obj.optTag == BRANCH_OPT_MV {
+		print_Log(fmt.Sprintf("Move branch '%s' to '%s'", obj.move.src, obj.move.dst), logger)
+		if err = move_Branch(obj); err != nil {
+			return FAIL, nil
+		}
+		if err = WriteConfig(obj.backingFileConfig, &configPath); err != nil {
+			return FAIL, nil
+		}
+	}
+	return OK, nil
+
+}
+
+func move_Branch(obj *BranchParams) error {
+
+	for i := range obj.backingFileConfig.Branch {
+		branch := &obj.backingFileConfig.Branch[i]
+		if branch.Name == obj.move.src {
+			branch.Name = obj.move.dst
+			return nil
+		}
+	}
+	return fmt.Errorf("Branch '%s' not found.", obj.move.src)
+}
+
+func show_Branch(obj *BranchParams, _layer *string, logger *log.Logger) (int, error) {
+
+	yamlConfig := obj.backingFileConfig
+	//branchs := yamlConfig.Branch
 	msg := ""
 	found := false
-	for _, item := range branchs {
+	layer := *_layer
+	for _, item := range yamlConfig.Branch {
 		info := ""
 		if layer == item.Head {
 			info += "* "
@@ -39,8 +74,8 @@ func show_Branch_Info(branchParams *BranchParams, logger *log.Logger) (int, erro
 				found = true
 			}
 
-		} else if branchParams.show_all {
-			msg += fmt.Sprintf("%sRemote/%s\n", info, item.Name)
+		} else if obj.show_all {
+			msg += fmt.Sprintf("%sRemotes/%s\n", info, item.Name)
 		}
 	}
 	if !found {

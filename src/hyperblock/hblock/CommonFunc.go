@@ -606,3 +606,29 @@ func downloadFile(url, localPath *string) error {
 	}
 	return nil
 }
+
+func return_Backingfile_AbsPath(path string) string {
+
+	if len(path) == 0 {
+		return ""
+	}
+	if path[0] == '/' {
+		return path
+	}
+	hbDir, err := hb_Init()
+	if err != nil {
+		return ""
+	}
+	return hbDir + path
+}
+
+// func update_VolumeConfig(volumePath *string, yamlVolumeConfig *YamlVolumeConfig){
+
+// 	volumeConfigPath := return_Volume_ConfigPath(volume)
+// 	// if err := LoadConfig(yamlVolumeConfig, &volumeConfigPath); err
+// 	// 	if err != nil {
+// 	// 		//	print_Error(err.Error(), logger)
+// 	// 		return FAIL, err
+// 	// 	}
+// 	// 	err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
+// }

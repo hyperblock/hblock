@@ -31,6 +31,11 @@ const (
 )
 
 const (
+	BRANCH_OPT_SHOW = 0
+	BRANCH_OPT_MV   = 1
+)
+
+const (
 	REPO_PATH_LOCAL = 0
 	REPO_PATH_HTTP  = 1
 	REPO_PATH_SSH   = 2

@@ -45,7 +45,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 	}
 	if isConflict, err := branchConflict(obj.url, obj.branch, layerUUIDs); isConflict || err != nil {
 		if err == nil && isConflict {
-			return FAIL, fmt.Errorf("There is a conflict between local branch '%s' and remote. Use 'hb pull' to fetch remote branch or 'hb branch --rename' to rename local branch.", obj.branch)
+			return FAIL, fmt.Errorf("There is a conflict between local branch '%s' and remote. Use 'hb pull' to fetch remote branch or 'hb branch -m' to rename local branch.", obj.branch)
 		} else {
 			return FAIL, err
 		}

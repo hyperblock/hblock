@@ -122,9 +122,16 @@ type YamlCommitMsg struct {
 }
 
 type BranchParams struct {
-	show_all   bool
-	list       bool
-	volumePath string
+	move struct {
+		src string
+		dst string
+	}
+	optTag            int
+	backingfile       string
+	backingFileConfig YamlBackingFileConfig
+	show_all          bool
+	list              bool
+	volumePath        string
 }
 
 type YamlBranch struct {
