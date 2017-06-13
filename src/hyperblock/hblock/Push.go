@@ -12,6 +12,7 @@ import (
 
 func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 
+	var tmpPath string
 	volumeInfo, err := return_VolumeInfo(&obj.volume)
 	if err != nil {
 		//print_Error(err.Error(), logger)
@@ -30,7 +31,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 	}
 	obj.url = return_RemoteUrl(&backingFileConfig.Remote, &obj.remote)
 	if obj.url == "" {
-		return FAIL, fmt.Errorf("Can not found remote '%s', use 'hb remote --add' to add a new remote host.", obj.remote)
+		return FAIL, fmt.Errorf("Can not found remote '%s', use 'hb remote <volume> --add' to add a new remote host.", obj.remote)
 	}
 	branchHead := return_BranchHead(&obj.branch, &backingFileConfig.Branch)
 	if branchHead == "" {
@@ -43,13 +44,20 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 		//print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	if isConflict, err := branchConflict(obj.url, obj.branch, layerUUIDs); isConflict || err != nil {
-		if err == nil && isConflict {
+	layerTrace := ""
+	for _, uuid := range layerUUIDs {
+		layerTrace += uuid + "\n"
+	}
+	print_Log("layer trace:\n"+layerTrace, logger)
+	isConflict, tmpPath, err := branchConflict(obj.url, obj.branch, layerUUIDs)
+	if isConflict == BRANCH_CONFLICT || err != nil {
+		if err == nil && isConflict == BRANCH_CONFLICT {
 			return FAIL, fmt.Errorf("There is a conflict between local branch '%s' and remote. Use 'hb pull' to fetch remote branch or 'hb branch -m' to rename local branch.", obj.branch)
 		} else {
 			return FAIL, err
 		}
 	}
+	//if isConflict ==
 	layerFiles := []string{}
 	defer RemoveFiles(layerFiles)
 	for _, layer := range layerUUIDs {
@@ -91,9 +99,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 		}
 	}
 	print_Log(msg+"OK\n", logger)
-	print_Log("Update local config.and push to remote...", logger)
-	tmpDir := os.TempDir()
-	tmpPath := tmpDir + "/" + path.Base(configPath)
+	print_Log("Update local config and push to remote...", logger)
 	if PathFileExists(tmpPath) == false {
 		_, err = CopyFile(tmpPath, configPath)
 		if err != nil {
@@ -102,11 +108,19 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 	}
 	LoadConfig(&backingFileConfig, &tmpPath)
 	defer os.Remove(tmpPath)
+	found := false
 	for i := range backingFileConfig.Branch {
 		backingFileConfig.Branch[i].Local = 0
+		backingFileConfig.Branch[i].Remote = ""
 		if backingFileConfig.Branch[i].Name == obj.branch {
 			backingFileConfig.Branch[i].Head = branchHead
+			found = true
 		}
+	}
+	if !found {
+		backingFileConfig.Branch = append(backingFileConfig.Branch, YamlBranch{
+			Name: obj.branch, Head: branchHead, Local: 0, Remote: "",
+		})
 	}
 	err = WriteConfig(&backingFileConfig, &tmpPath)
 	if err != nil {

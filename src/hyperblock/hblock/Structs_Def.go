@@ -135,9 +135,10 @@ type BranchParams struct {
 }
 
 type YamlBranch struct {
-	Name  string `yaml:"name"`
-	Local int    `yaml:"local"`
-	Head  string `yaml:"head"`
+	Name   string `yaml:"name"`
+	Local  int    `yaml:"local"`
+	Head   string `yaml:"head"`
+	Remote string `yaml:"remote"`
 }
 
 type YamlRemote struct {

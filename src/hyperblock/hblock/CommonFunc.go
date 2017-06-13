@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -331,13 +332,28 @@ func return_LayerUUID(backingFilePath string, layerPrefix string, returnLast boo
 			return "", fmt.Errorf(msg)
 		}
 		branchList := yamlConfig.Branch
+		//	ret := ""
+		remoteFlag := false
 		for _, item := range branchList {
 			if item.Name == layerPrefix {
-				return item.Head, nil
+				ret = item.Head
+				cnt++
+			}
+			branch0 := fmt.Sprintf("remotes/%s/%s", item.Remote, item.Name)
+			branch1 := fmt.Sprintf("%s/%s", item.Remote, item.Name)
+			if layerPrefix == branch0 || layerPrefix == branch1 {
+				ret = item.Head
+				cnt++
+				remoteFlag = item.Local == 1
 			}
 		}
-		return "", fmt.Errorf(
-			fmt.Sprintf("Can't get coresponding layer from prefix '%s'", layerPrefix))
+		if cnt > 1 {
+			return "", fmt.Errorf("It seems two more remotes has branch '%s', need specify remote name, such as 'origin/master' or 'remotes/origin/master'", layerPrefix)
+		} else if cnt == 0 {
+			return "", fmt.Errorf("Can't get coresponding layer from prefix '%s'", layerPrefix)
+		} else if remoteFlag == false {
+			return "", fmt.Errorf("Branch '%s' is not in local. Please use 'hb pull' to fetch from remote.", layerPrefix)
+		}
 	}
 	return ret, nil
 
@@ -475,7 +491,7 @@ func return_BranchInfo(backingfileConfig *string, branchName string) (YamlBranch
 	return YamlBranch{}, fmt.Errorf("Branch '%s' not found.", branchName)
 }
 
-func trace_Parents(backingFilePath *string, head *string) ([]string, error) {
+func trace_Parents(backingFilePath *string, head *string) (ret []string, err error) {
 
 	jsonBackingFile, err := return_JsonBackingFile(backingFilePath)
 	if err != nil {
@@ -483,13 +499,19 @@ func trace_Parents(backingFilePath *string, head *string) ([]string, error) {
 	}
 	layerList := return_LayerList(&jsonBackingFile)
 	pHead := *head
-	ret := []string{pHead}
+	ret = []string{pHead}
 	for i := len(layerList) - 1; i > 0; i-- {
 		if layerList[i].uuid == pHead {
 			pHead = layerList[i].parent_uuid
 			ret = append(ret, pHead)
 		}
 	}
+	defer func() {
+		if ret != nil {
+			msg := strings.Join(ret, " --> ")
+			print_Trace(msg)
+		}
+	}()
 	return ret, nil
 }
 
@@ -524,12 +546,13 @@ func RemoveFiles(files []string) {
 
 	for _, file := range files {
 		if PathFileExists(file) {
+			print_Trace(fmt.Sprintf("Remove file: %s", file))
 			os.Remove(file)
 		}
 	}
 }
 
-func setLocalBranchTag(configPath *string, branch *string) error {
+func setLocalBranchTag(configPath *string, branch *string, remote *string) error {
 
 	config := YamlBackingFileConfig{}
 	err := LoadConfig(&config, configPath)
@@ -538,9 +561,10 @@ func setLocalBranchTag(configPath *string, branch *string) error {
 	}
 
 	for i := 0; i < len(config.Branch); i++ {
-		ok := config.Branch[i].Name == *branch
+		ok := (config.Branch[i].Name == *branch && config.Branch[i].Remote == *remote)
 		if ok {
 			config.Branch[i].Local = 1
+			config.Branch[i].Remote = ""
 		}
 	}
 	if err = WriteConfig(&config, configPath); err != nil {
@@ -549,35 +573,38 @@ func setLocalBranchTag(configPath *string, branch *string) error {
 	return nil
 }
 
-func branchConflict(repoURL, branchName string, localLayers []string) (bool, error) {
+func branchConflict(repoURL, branchName string, localLayers []string) (int, string, error) {
 
 	remoteConfigPath := return_BackingFileConfig_Path(&repoURL)
-	//r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	//tmpConfig := fmt.Sprintf("%s/%s.%d", os.TempDir(), path.Base(remoteConfigPath), r.Intn(100000))
-	tmpConfig := fmt.Sprintf("%s/%s", os.TempDir(), path.Base(remoteConfigPath))
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	tmpConfig := fmt.Sprintf("%s/%s.%d", os.TempDir(), path.Base(remoteConfigPath), r.Intn(100000))
+	//tmpConfig := fmt.Sprintf("%s/%s", os.TempDir(), path.Base(remoteConfigPath))
 	print_Trace(fmt.Sprintf("Download remote config to local.(%s)", tmpConfig))
 	if err := downloadFile(&remoteConfigPath, &tmpConfig); err != nil {
 		if err.Error() == "404" {
-			return false, nil
+			return OK, "", nil
 		}
-		return false, err
+		return FAIL, "", err
 	}
 	remoteConfig := YamlBackingFileConfig{}
 	if err := LoadConfig(&remoteConfig, &tmpConfig); err != nil {
 		os.Remove(tmpConfig)
-		return true, err
+		return FAIL, "", err
 	}
 	head := return_BranchHead(&branchName, &remoteConfig.Branch)
+	print_Trace("head: " + head)
 	if head == "" {
-		return false, nil
+		//	print_Trace("head empty: " + branchName)
+		return BRANCH_NO_EXIST, tmpConfig, nil
 	}
 	for _, layerUUID := range localLayers {
 		if head == layerUUID {
-			return false, nil
+			print_Trace("layer exist. " + head)
+			return BRANCH_CONTANS, tmpConfig, nil
 		}
 	}
 	os.Remove(tmpConfig)
-	return true, nil
+	return BRANCH_CONFLICT, tmpConfig, nil
 }
 
 func downloadFile(url, localPath *string) error {
@@ -622,13 +649,18 @@ func return_Backingfile_AbsPath(path string) string {
 	return hbDir + path
 }
 
-// func update_VolumeConfig(volumePath *string, yamlVolumeConfig *YamlVolumeConfig){
+func setBranchRemoteTag(configPath *string, remoteName string) error {
 
-// 	volumeConfigPath := return_Volume_ConfigPath(volume)
-// 	// if err := LoadConfig(yamlVolumeConfig, &volumeConfigPath); err
-// 	// 	if err != nil {
-// 	// 		//	print_Error(err.Error(), logger)
-// 	// 		return FAIL, err
-// 	// 	}
-// 	// 	err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
-// }
+	config := YamlBackingFileConfig{}
+	if err := LoadConfig(&config, configPath); err != nil {
+		return err
+	}
+	for i := range config.Branch {
+		branch := &config.Branch[i]
+		branch.Remote = "origin"
+	}
+	if err := WriteConfig(&config, configPath); err != nil {
+		return err
+	}
+	return nil
+}

@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"strings"
+	"time"
 )
 
 func volume_PullBranch(obj *PullParams, logger *log.Logger) (int, error) {
 
 	print_Log("Verify backingfile info...", logger)
 	var err error
+	var tmpConfig string
 	obj.localRepoPath, err = return_Volume_BackingFile(&obj.volume)
 	if err != nil {
 		return FAIL, err
@@ -26,10 +30,71 @@ func volume_PullBranch(obj *PullParams, logger *log.Logger) (int, error) {
 	if err = LoadConfig(&backingfileConfig, &obj.configPath); err != nil {
 		return FAIL, err
 	}
-
+	branchHead := return_BranchHead(&obj.branch, &backingfileConfig.Branch)
 	obj.remoteRepoPath = return_RemoteUrl(&backingfileConfig.Remote, &obj.remote)
 	if obj.remoteRepoPath == "" {
 		return FAIL, fmt.Errorf("Remote ('%s')'s URL can not be found.", obj.remote)
+	}
+
+	if branchHead != "" {
+		print_Log("Trace branch commitID", logger)
+		layerUUIDs, err := trace_Parents(&obj.localRepoPath, &branchHead)
+		if err != nil {
+			return FAIL, err
+		}
+		isConflict, tmp, err := branchConflict(obj.remoteRepoPath, obj.branch, layerUUIDs)
+
+		if err != nil || isConflict == BRANCH_CONFLICT {
+			if err == nil && isConflict == BRANCH_CONFLICT {
+				return FAIL, fmt.Errorf("There is a conflict between local branch '%s' and remote. Use 'hb branch -m' to rename local branch.", obj.branch)
+			} else {
+				return FAIL, err
+			}
+		}
+		if isConflict == BRANCH_CONTANS {
+			print_Log(fmt.Sprintf("Branch '%s' has been fetched in local.", obj.branch), logger)
+			return OK, nil
+		}
+		tmpConfig = tmp
+	} else {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		tmpConfig = fmt.Sprintf("%s/%s.%d", os.TempDir(), path.Base(obj.remoteRepoPath), r.Intn(100000))
+	}
+	//	return FAIL, fmt.Errorf("debug.")
+
+	if PathFileExists(tmpConfig) == false {
+
+		remoteConfigPath := return_BackingFileConfig_Path(&obj.remoteRepoPath)
+		print_Trace(fmt.Sprintf("Download remote config `%s` to local `%s`", remoteConfigPath, tmpConfig))
+		if err = downloadFile(&remoteConfigPath, &tmpConfig); err != nil {
+			return FAIL, err
+		}
+	}
+
+	remoteConfig := YamlBackingFileConfig{}
+	print_Log("integrate branch info.", logger)
+	if err = LoadConfig(&remoteConfig, &tmpConfig); err != nil {
+		return FAIL, err
+	}
+	for i := range remoteConfig.Branch {
+		branch := &remoteConfig.Branch[i]
+		fmt.Println(branch.Name)
+		branch.Remote = obj.remote
+		found := false
+		for j := range backingfileConfig.Branch {
+			if branch.Name == backingfileConfig.Branch[j].Name && branch.Remote == backingfileConfig.Branch[j].Remote {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			backingfileConfig.Branch = append(backingfileConfig.Branch, *branch)
+		}
+	}
+
+	//	return FAIL, fmt.Errorf("debug.")
+	if err = WriteConfig(&backingfileConfig, &obj.configPath); err != nil {
+		return FAIL, err
 	}
 	if err = PullBranch(obj, logger); err != nil {
 		return FAIL, err
@@ -54,6 +119,7 @@ func PullDefaultBranch(obj *PullParams, logger *log.Logger) error {
 
 func PullBranch(obj *PullParams, logger *log.Logger) error {
 
+	print_Log("Pull branch: "+obj.branch, logger)
 	backingFileConfig := YamlBackingFileConfig{}
 	err := LoadConfig(&backingFileConfig, &obj.configPath)
 	if err != nil {
@@ -195,7 +261,7 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 		}
 	}
 	print_Log("Update branch info...", logger)
-	return setLocalBranchTag(&obj.configPath, &obj.branch)
+	return setLocalBranchTag(&obj.configPath, &obj.branch, &obj.remote)
 	//	return nil
 }
 

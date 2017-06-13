@@ -171,7 +171,7 @@ func (p OptSelector) branch(args []string) (int, error) {
 
 		Move string `short:"m" long:"move" description:"<exist_branch> <new_branch> move/rename a branch.\n"`
 
-		BackingFile string `short:"t" long:"backingfile" description:"required if use '-m'\n"`
+		BackingFile string `short:"t" long:"backingfile"`
 
 		Volume string `short:"v" long:"volume"`
 	}
@@ -183,17 +183,22 @@ func (p OptSelector) branch(args []string) (int, error) {
 	}
 	if options.Volume == "" && (options.Move != "" && options.BackingFile == "") {
 		msg := "Too few arguments. Need specify <volume name>"
-		//	print_Error(msg, p.logger)
-		flags.ParseArgs(&options, []string{"-h"})
+		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
 	if !(options.List || options.All) {
 		options.List = true
 	}
+	if options.BackingFile != "" && options.Volume != "" {
+		p.Usage(&options)
+		//	fmt.Println(options.Volume, options.BackingFile)
+		return FAIL, fmt.Errorf("Can not use both '-v' and '-t'.")
+	}
 
 	branchParams := BranchParams{
 		list: options.List, show_all: options.All, optTag: BRANCH_OPT_SHOW,
 	}
+	backingfile := options.BackingFile
 	if options.Volume != "" {
 		branchParams.volumePath = return_AbsPath(options.Volume)
 		if !PathFileExists(branchParams.volumePath) {
@@ -203,16 +208,21 @@ func (p OptSelector) branch(args []string) (int, error) {
 			p.Usage(&options)
 			return FAIL, fmt.Errorf(msg)
 		}
-	} else if options.Move != "" {
-		if options.BackingFile == "" {
-			msg := "need '-t' to set <backingfile>."
+		backingfile, err = return_Volume_BackingFile(&branchParams.volumePath)
+		if err != nil {
+			return FAIL, fmt.Errorf("Can't load backingfile info.")
+		}
+	}
+	if options.Move != "" {
+		if options.Volume == "" && options.BackingFile == "" {
+			msg := "need use '-v' or '-t'."
 			p.Usage(&options)
 			return FAIL, fmt.Errorf(msg)
 		}
 		branchParams.move.src = options.Move
 		branchParams.move.dst = args[0]
 		branchParams.optTag = BRANCH_OPT_MV
-		branchParams.backingfile = return_Backingfile_AbsPath(options.BackingFile)
+		branchParams.backingfile = return_Backingfile_AbsPath(backingfile)
 	}
 	return volume_Branch(&branchParams, p.logger)
 
@@ -227,7 +237,7 @@ func (p OptSelector) checkout(args []string) (int, error) {
 
 		Output string `short:"o" long:"output" description:"<output_volume_path>.\n"`
 
-		Branch string `short:"b" long:"branch" description:"<branch> <volume_name> Create a new branch of specified volume.\n"`
+		Branch string `short:"b" long:"base" description:"<branch> Create a new branch of base on the specify volume.\n"`
 
 		Force bool `short:"f" long:"force.\n"`
 	}
@@ -236,11 +246,11 @@ func (p OptSelector) checkout(args []string) (int, error) {
 	if err != nil {
 		return FAIL, nil
 	}
-	if len(args) < 1 {
-		msg := "Too few arguments"
-		p.Usage(&options)
-		return FAIL, fmt.Errorf(msg)
-	}
+	// if len(args) < 1 {
+	// 	msg := "Too few arguments"
+	// 	p.Usage(&options)
+	// 	return FAIL, fmt.Errorf(msg)
+	// }
 	if options.Backingfile != "" && options.Volume != "" {
 		msg := "Can't use both -v and -t."
 		p.Usage(&options)
@@ -251,14 +261,14 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	if options.Volume != "" && options.Branch != "" {
-		msg := "Can't use both -v and -b."
-		p.Usage(&options)
-		return FAIL, fmt.Errorf(msg)
-	}
+	// if options.Volume != "" && options.Branch != "" {
+	// 	msg := "Can't use both -v and -b."
+	// 	p.Usage(&options)
+	// 	return FAIL, fmt.Errorf(msg)
+	// }
 
 	if options.Branch == "" && (options.Backingfile != "" && options.Output == "") {
-		msg := "use -o <output_volume_path> to set output volume file. "
+		msg := "use '-o' to set output volume file. "
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
@@ -272,16 +282,16 @@ func (p OptSelector) checkout(args []string) (int, error) {
 		}
 		if options.Output == "" {
 			if !options.Force {
-				msg := "Need use -o to set the checkout volume name or use -f to reset current volume."
+				msg := "Need use '-o' to set output volume or '-f' to reset current volume."
 				p.Usage(&options)
 				return FAIL, fmt.Errorf(msg)
 			}
 			options.Output = options.Volume
 		}
 	}
-	if options.Branch != "" {
-		options.Volume = return_AbsPath(args[0])
-	}
+	// if options.Branch != "" {
+	// 	options.Volume = return_AbsPath(args[0])
+	// }
 	if options.Volume == "" && options.Backingfile == "" {
 		msg := "Need specify <volume> or <backingfile>."
 		p.Usage(&options)
@@ -572,33 +582,28 @@ func (p OptSelector) reset(args []string) (int, error) {
 func (p OptSelector) remote(args []string) (int, error) {
 
 	var options struct {
-		Verbose bool `short:"v" long:"verbose" description:""`
-		Add     bool `short:"a" long:"add" description:"<name> <url>\tAdd a new remote-host to local remote-host list."`
-		Remove  bool `short:"d" long:"remove" description:"<name>\tDelete a host from local remote-host list."`
-		Rename  bool `long:"rename" description:"<old_name> <new_name>\t Rename an exsiting host name."`
-		SetUrl  bool `long:"set-url" descripion:"<name> <url>\tChange an exists remote-host's url."`
+		Verbose bool   `short:"a" long:"verbose" description:"show remotes verbose"`
+		Volume  string `short:"v" long:"volume" description:"set <volume> whose repo remotes need to be edited."`
+		Add     bool   `long:"add" description:"<name> <url>\tAdd a new remote-host to local remote-host list."`
+		Remove  string `short:"d" long:"remove" description:"<name>\tDelete a host from local remote-host list."`
+		Rename  bool   `long:"rename" description:"<old_name> <new_name>\t Rename an exsiting host name."`
+		SetUrl  bool   `long:"set-url" descripion:"<name> <url>\tChange an exists remote-host's url."`
 	}
-	os.Args = custom_Args(args, "<volume>")
+	os.Args = custom_Args(args, "")
 	args, err := flags.ParseArgs(&options, args[1:])
 	if err != nil {
 		//flags.ParseArgs(&options, []string{"-h"})
 		return FAIL, nil
 	}
-	if len(args) < 1 {
-		msg := "Need specify <volume>"
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
-		p.Usage(&options)
-		return FAIL, fmt.Errorf(msg)
-	}
-	volume := return_AbsPath(args[0])
-	if !PathFileExists(volume) {
 
-		//	print_Error(msg, p.logger)
-		//flags.ParseArgs(&options, []string{"-h"})
+	if options.Volume == "" {
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("Need use -v to set volume")
+	}
+	volume := return_AbsPath(options.Volume)
+	if !PathFileExists(volume) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf("The specified volume '%s' can not be found.", volume)
-		//	return FAIL, fmt.Errorf(msg)
 	}
 	backingfile, err := return_Volume_BackingFile(&volume)
 	if err != nil || VerifyBackingFile(backingfile) != OK {
@@ -610,22 +615,22 @@ func (p OptSelector) remote(args []string) (int, error) {
 		backingFile: backingfile,
 	}
 	if !options.Verbose {
-		if ((options.Add || options.Rename || options.SetUrl) && len(args) < 3) || (options.Rename && len(args) < 2) {
+		if (options.Add || options.Rename || options.SetUrl) && len(args) < 2 {
 			//flags.ParseArgs(&options, []string{"-h"})
 			p.Usage(&options)
 			return FAIL, fmt.Errorf("Too few arguments..")
 		}
 		if options.Add {
-			remoteObj.add.name = args[1]
-			remoteObj.add.url = args[2]
+			remoteObj.add.name = args[0]
+			remoteObj.add.url = args[1]
 		} else if options.SetUrl {
-			remoteObj.setUrl.name = args[1]
-			remoteObj.setUrl.url = args[2]
-		} else if options.Remove {
-			remoteObj.remove = args[1]
+			remoteObj.setUrl.name = args[0]
+			remoteObj.setUrl.url = args[1]
+		} else if options.Remove != "" {
+			remoteObj.remove = options.Remove
 		} else if options.Rename {
-			remoteObj.rename.oldName = args[1]
-			remoteObj.rename.newName = args[2]
+			remoteObj.rename.oldName = args[0]
+			remoteObj.rename.newName = args[1]
 		}
 	}
 	return Remote(remoteObj, p.logger)
@@ -767,7 +772,7 @@ func (p OptSelector) launch(args []string) (int, error) {
 
 func (p OptSelector) list(args []string) (int, error) {
 
-	if args[1] == "-h" || args[1] == "--help" {
+	if len(args) >= 2 && (args[1] == "-h" || args[1] == "--help") {
 		fmt.Println(OPT_LIST_USAGE)
 		return OK, nil
 	}
@@ -793,15 +798,16 @@ func (p OptSelector) show(args []string) (int, error) {
 
 	p.logger.Println("show", args)
 	//	return FAIL, fmt.Errorf("Option unfinished.")
-	if args[1] == "-h" || args[1] == "--help" {
-		fmt.Println(OPT_SHOW_USAGE)
-		return OK, nil
-	}
-	if len(args) <= 1 {
+	if len(args) < 2 {
 		msg := "Too few arguments.\n"
 		fmt.Println(OPT_SHOW_USAGE)
 		return FAIL, fmt.Errorf(msg)
 	}
+	if args[1] == "-h" || args[1] == "--help" {
+		fmt.Println(OPT_SHOW_USAGE)
+		return OK, nil
+	}
+
 	image, err := confirm_BackingFilePath(args[1])
 	if image == "" {
 		//	print_Error(err.Error(), p.logger)

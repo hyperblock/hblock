@@ -110,12 +110,16 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 
 		_, err = CopyFile(targetConfigPath, obj.configPath)
 		if err != nil {
-			//	print_Error(err.Error(), logger)
 			if PathFileExists(targetConfigPath) {
 				os.Remove(targetConfigPath)
 			}
 			return checkoutRet, err
 		}
+		print_Log("set remote tag of each branch.", logger)
+		if err = setBranchRemoteTag(&targetConfigPath, "origitn"); err != nil {
+			return checkoutRet, err
+		}
+
 		pullObj := PullParams{
 			//branch:   []string{obj.branch},
 			all:            false,
@@ -133,6 +137,12 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 		if err != nil {
 			return checkoutRet, err
 		}
+		print_Log("Add remote origin..", logger)
+		err = setRemoteOrigin(&targetConfigPath, &obj.repoPath)
+		if err != nil {
+			//print_Error(err.Error(), logger)
+			return checkoutRet, err
+		}
 		//	setLocalBranchTag(&pullObj.configPath, []string{pullObj.branch})
 		if !obj.checkoutFlg {
 			return checkoutRet, nil
@@ -140,7 +150,6 @@ func clone_Local(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 		obj.branch = pullObj.branch
 		obj.layerUUID = pullObj.pullList[0] //will return branch head commit id
 		obj.repoPath, obj.configPath = targetRepoPath, targetConfigPath
-
 	}
 	checkoutRet = CheckoutParams{branch: obj.branch, template: obj.repoPath, output: currentDir + path.Base(obj.repoPath), layer: obj.layerUUID}
 	print_Log(fmt.Sprintf("Ready to checkout from backing file. (volume name: %s)", checkoutRet.output), logger)
@@ -162,7 +171,11 @@ func clone_Http(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 	if err != nil {
 		return checkoutRet, err
 	}
-	//branch := YamlBranch{}
+
+	print_Log("set remote tag of each branch.", logger)
+	if err = setBranchRemoteTag(&targetConfigPath, "origin"); err != nil {
+		return checkoutRet, err
+	}
 
 	branch, err := return_BranchInfo(&targetConfigPath, obj.branch)
 	if err != nil {
@@ -173,6 +186,7 @@ func clone_Http(obj *CloneParams, logger *log.Logger) (CheckoutParams, error) {
 		branch:         branch.Name,
 		protocol:       REPO_PATH_HTTP,
 		all:            false,
+		remote:         "origin",
 		remoteRepoPath: obj.repoPath,
 		configPath:     targetConfigPath,
 		localRepoPath:  hbDir + path.Base(obj.repoPath),

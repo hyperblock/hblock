@@ -80,14 +80,15 @@ Application Options:
 * ### __remote__  
 ```
 Usage:
-  hb remote <volume> [OPTIONS]
+  hb remote [OPTIONS]
 
 Application Options:
-  -v, --verbose
-  -a, --add      <name> <url>    Add a new remote-host to local remote-host list.
-  -d, --remove   <name>	Delete a host from local remote-host list.
-	  --rename   <old_name> <new_name>	 Rename an exsiting host name.
-	  --set-url
+  -a, --verbose  show remotes verbose
+  -v, --volume=  set <volume> whose repo remotes need to be edited.
+      --add      <name> <url>	Add a new remote-host to local remote-host list.
+  -d, --remove=  <name>	Delete a host from local remote-host list.
+      --rename   <old_name> <new_name>	 Rename an exsiting host name.
+      --set-url
 ```
 * ### __rebase__
 ```
@@ -113,14 +114,16 @@ Application Options:
 * ### __checkout__
 ```
 Usage:
-  hb checkout [OPTIONS]    
+  hb checkout [OPTIONS]
+
 Application Options:
   -v, --vol=         <volume_name> <layer | branch> Specify the volume name which needs to be
-					 update(restore).    
-  -t, --backingfile= <backingfile> <layer | branch> Create a new volume from <backingfile>.    
-  -o, --output=      <output_volume_path>.    
-  -b, --branch=      <branch> <volume_name> Create a new branch of specified volume.    
+                     update(restore).
+  -t, --backingfile= <backingfile> <layer | branch> Create a new volume from <backingfile>.
+  -o, --output=      <output_volume_path>.
+  -b, --base=        <branch> Create a new branch of base on the specify volume.
   -f, --force.
+
 ```
 * ### __commit__
 ```

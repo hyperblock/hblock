@@ -17,6 +17,12 @@ const (
 )
 
 const (
+	BRANCH_CONFLICT = 1
+	BRANCH_NO_EXIST = 2
+	BRANCH_CONTANS  = 4
+)
+
+const (
 	color_red = uint8(iota + 91)
 	color_green
 	color_yellow

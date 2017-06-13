@@ -58,9 +58,10 @@ func show_Branch(obj *BranchParams, _layer *string, logger *log.Logger) (int, er
 	msg := ""
 	found := false
 	layer := *_layer
+	remoteBranch := []string{}
 	for _, item := range yamlConfig.Branch {
 		info := ""
-		if layer == item.Head {
+		if layer == item.Head && item.Local == 1 {
 			info += "* "
 		} else {
 			info += "  "
@@ -75,11 +76,14 @@ func show_Branch(obj *BranchParams, _layer *string, logger *log.Logger) (int, er
 			}
 
 		} else if obj.show_all {
-			msg += fmt.Sprintf("%sRemotes/%s\n", info, item.Name)
+			remoteBranch = append(remoteBranch, fmt.Sprintf("%sRemotes/%s/%s\n", info, item.Remote, item.Name))
 		}
 	}
 	if !found {
 		msg = "* " + yellow(fmt.Sprintf("(Head detached at '%s')\n", layer[0:7])) + msg
+	}
+	for _, branch := range remoteBranch {
+		msg += red(branch)
 	}
 	print_Log(Format_Success("-------- Result Info -------------:\n")+msg, logger)
 	return OK, nil

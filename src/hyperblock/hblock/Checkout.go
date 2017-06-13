@@ -14,15 +14,28 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 	rollback := ""
 	tmpOutput := ""
 	if obj.branch != "" {
+		print_Log("Check backingfile info...", logger)
+		backingFile, err := return_Volume_BackingFile(&obj.volume)
+		if err != nil {
+			return FAIL, err
+		}
+		backingFileConfigPath := return_BackingFileConfig_Path(&backingFile)
+		yamlBackingFileConfg := YamlBackingFileConfig{}
+		print_Log("Load backingfile config...", logger)
+		if err = LoadConfig(&yamlBackingFileConfg, &backingFileConfigPath); err != nil {
+			return FAIL, err
+		}
+		for _, branch := range yamlBackingFileConfg.Branch {
+			if branch.Name == obj.branch {
+				return FAIL, fmt.Errorf("Branch exists in remote '%s'", branch.Remote)
+			}
+		}
 		print_Log(fmt.Sprintf("Create new branch '%s' (cached)", obj.branch), logger)
+
 		volumeConfigPath := return_Volume_ConfigPath(&obj.volume)
 		yamlVolumeConfig := YamlVolumeConfig{Branch: obj.branch, NewBranch: true}
-		// err := LoadConfig(&yamlVolumeConfig, &volumeConfigPath)
-		// if err != nil {
-		// 	//	print_Error(err.Error(), logger)
-		// 	return FAIL, err
-		// }
-		err := WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
+
+		err = WriteConfig(&yamlVolumeConfig, &volumeConfigPath)
 		if err != nil {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
@@ -40,6 +53,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 			return FAIL, err
 		}
 		backingFileConfig = return_BackingFileConfig_Path(&backingFile)
+		print_Log("Get full uuid of "+obj.layer, logger)
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			//print_Error(err.Error(), logger)
@@ -70,6 +84,10 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		obj.layer = layer
 		//checkoutArgs = []string{"create", "-t", backingFile, "-l", layer, obj.output}
 	}
+
+	// if layerInLocal(obj.layer, backingFileConfig) == false{
+	// 	msg:=Format_Warning("The branch head %s... is in remote server, pull this branch 	")
+	// }
 	print_Log("Create volume's config file...", logger)
 	//	createArgs := []string{"-l", layer, "-t", backingFile}
 	yamlVolume := YamlVolumeConfig{}
@@ -106,6 +124,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		}
 	}
 	//	fmt.Println(backingFile)
-	print_Log(Format_Success("Checkout finished."), logger)
+	print_Log(Format_Success(
+		fmt.Sprintf("Checkout finished. Head at ( %s )", obj.layer)), logger)
 	return OK, nil
 }
