@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"hyperblock/hblock"
 	"log"
 	"os"
 	"os/user"
 	"time"
+
+	"github.com/hyperblock/hblock/deps"
 )
 
 func main() {

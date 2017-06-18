@@ -3,7 +3,7 @@ package hblock
 import (
 	"fmt"
 
-	"libguestfs.org/guestfs"
+	"github.com/hyperblock/hblock/deps/guestfs"
 
 	"log"
 	"os"
