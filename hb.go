@@ -15,6 +15,7 @@ func main() {
 	//home
 	usr, err := user.Current()
 	hb_Dir := usr.HomeDir + "/.hb"
+	//fmt.Println(hb_Dir)
 	_, err = os.Stat(hb_Dir)
 	if err != nil {
 		fmt.Println(hblock.Format_Warning("Hyperblock global directory doesn't exists, will create..."))

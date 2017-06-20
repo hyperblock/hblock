@@ -159,7 +159,7 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 			checkout: false,
 		}
 		print_Log("\rCreate disk...", logger)
-		err := createDisk(initObj)
+		err := h.CreateDisk(&initObj)
 		if err != nil {
 			print_Log("FAIL\n", logger)
 			return err

@@ -30,8 +30,6 @@ func CreateOptSelector(_log *log.Logger) *OptSelector {
 // SendCommand : Execute args, call this after Create()
 func (p OptSelector) SendCommand(args []string) (int, error) {
 
-	//args = strings.Split("commit image1 -m \"layer0\" ", " ")
-	//args = []string{"init", "--name", "hehe"}
 	if len(args) == 0 {
 		//	print_Error("invalid option.", p.logger)
 		return FAIL, fmt.Errorf("invalid option.")
