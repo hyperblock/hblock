@@ -156,8 +156,11 @@ type YamlBackingFileConfig struct {
 }
 
 type YamlVolumeConfig struct {
-	Branch    string `yaml:"branch.name"`
-	NewBranch bool   `yaml:"branch.create"`
+	Branch      string `yaml:"branch.name"`
+	NewBranch   bool   `yaml:"branch.create"`
+	BackingFile string `yaml:"backingfile"`
+	Format      string `yaml:"format"`
+	VirtualSize string `yaml:"virtual size"`
 }
 
 type PushParams struct {

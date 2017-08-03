@@ -4,13 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"os/user"
-	"path"
 	"strings"
 
-	"lvdiff.bak/lvbackup/lvmutil"
-
-	"os"
+	"github.com/hyperblock/lvdiff/lvbackup/lvmutil"
 
 	"github.com/hyperblock/hblock/deps/guestfs"
 )
@@ -21,49 +17,72 @@ const (
 	FMT_LVM     = 2
 )
 
-type HyperLayer struct {
-	format            int
-	cmd               string
-	backingfileConfig string
-	args              []string
+type HBM struct {
+	format        int
+	cmd           string
+	args          []string
+	location      string
+	volConfigPath string
+	volInfo       YamlVolumeConfig
 }
 
-func CreateHyperLayer(fmt_tag int, backingfilePath_Or_format *string) (HyperLayer, error) {
+func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 
-	ret := HyperLayer{}
-	if fmt_tag == FMT_UNKNOWN {
-		if *backingfilePath_Or_format == "qcow2" {
-			fmt_tag = FMT_QCOW2
-
-		} else if *backingfilePath_Or_format == "lvm" {
-			fmt_tag = FMT_LVM
-		} else {
-			config := YamlBackingFileConfig{}
-			err := LoadConfig(&config, backingfilePath_Or_format)
-			ret.backingfileConfig = *backingfilePath_Or_format
-			if err != nil {
-				return HyperLayer{}, nil
-			}
-			if config.Format == "qcow2" {
-				fmt_tag = FMT_QCOW2
-			} else if config.Format == "lvm" {
-				fmt_tag = FMT_LVM
-			} else {
-				return HyperLayer{}, fmt.Errorf("Can't confirm backingfile's format.")
-			}
-		}
+	ret := HBM{}
+	configPath := return_Volume_ConfigPath(&volPath)
+	config := YamlVolumeConfig{}
+	err := LoadConfig(&config, &volPath)
+	ret.volConfigPath = volPath
+	if err != nil {
+		return HBM{}, nil
 	}
+	if config.Format == "qcow2" {
+		ret.format = FMT_QCOW2
+	} else if config.Format == "lvm" {
+		ret.format = FMT_LVM
+	} else {
+		return HBM{}, fmt.Errorf("Can't confirm Volume's format.")
+	}
+	return ret, nil
+}
+
+func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
+
+	ret := HBM{}
+	// if fmt_tag == FMT_UNKNOWN {
+	// 	if *backingfilePath_Or_format == "qcow2" {
+	// 		fmt_tag = FMT_QCOW2
+
+	// 	} else if *backingfilePath_Or_format == "lvm" {
+	// 		fmt_tag = FMT_LVM
+	// 	} else {
+	// 		config := YamlBackingFileConfig{}
+	// 		err := LoadConfig(&config, backingfilePath_Or_format)
+	// 		ret.backingfileConfig = *backingfilePath_Or_format
+	// 		if err != nil {
+	// 			return HBM{}, nil
+	// 		}
+	// 		if config.Format == "qcow2" {
+	// 			fmt_tag = FMT_QCOW2
+	// 		} else if config.Format == "lvm" {
+	// 			fmt_tag = FMT_LVM
+	// 		} else {
+	// 			return HBM{}, fmt.Errorf("Can't confirm backingfile's format.")
+	// 		}
+	// 	}
+	// }
 	ret.format = fmt_tag
+	ret.location = return_AbsPath(fileFullName)
 
 	return ret, ret.check_Command()
 }
 
-func (h *HyperLayer) SetArgs(_args []string) {
+func (h *HBM) SetArgs(_args []string) {
 
 	h.args = _args
 }
 
-func (h *HyperLayer) check_Command() (err error) {
+func (h *HBM) check_Command() (err error) {
 
 	cmd := ""
 	if h.format == FMT_UNKNOWN {
@@ -75,7 +94,7 @@ func (h *HyperLayer) check_Command() (err error) {
 		if err != nil {
 			return fmt.Errorf("Command 'qcow2-img' not found. ( %s )", err.Error())
 		}
-		//h.cmd = cmd
+		//h.cmd = cmds
 		//return nil
 	}
 	// if h.format == FMT_LVM {
@@ -86,7 +105,7 @@ func (h *HyperLayer) check_Command() (err error) {
 	return nil
 }
 
-func (h *HyperLayer) runCommand(args []string) (err error) {
+func (h *HBM) runCommand(args []string) (err error) {
 
 	print_Trace(fmt.Sprintf("%s %s", h.cmd, args))
 
@@ -102,7 +121,7 @@ func (h *HyperLayer) runCommand(args []string) (err error) {
 	return nil
 }
 
-func (h *HyperLayer) Commit(obj *CommitParams) error {
+func (h *HBM) Commit(obj *CommitParams) error {
 
 	print_Trace("HyperLayer.Commit.")
 
@@ -110,14 +129,14 @@ func (h *HyperLayer) Commit(obj *CommitParams) error {
 	return h.runCommand(commitArgs)
 }
 
-func (h HyperLayer) DumpLayer(obj *DumpParams) error {
+func (h HBM) DumpLayer(obj *DumpParams) error {
 
 	print_Trace("HyperLayer.DumpLayer.")
 	dumpArgs := []string{"layerdump", "-t", obj.backngFile, "-l", obj.layerUUID, obj.output}
 	return h.runCommand(dumpArgs)
 }
 
-func (h HyperLayer) Rebase(obj *RebaseParams) error {
+func (h HBM) Rebase(obj *RebaseParams) error {
 
 	print_Trace("HyperLayer.Rebase.")
 	if h.format == FMT_QCOW2 {
@@ -131,7 +150,7 @@ func (h HyperLayer) Rebase(obj *RebaseParams) error {
 	return nil
 }
 
-func (h HyperLayer) Checkout(obj *CheckoutParams) error {
+func (h HBM) Checkout(obj *CheckoutParams) error {
 
 	print_Trace("HyperLayer.Checkout.")
 
@@ -149,7 +168,7 @@ func (h HyperLayer) Checkout(obj *CheckoutParams) error {
 	return errors.New("format unknow.")
 }
 
-func (h HyperLayer) CreateDisk(obj *InitParams) error {
+func (h HBM) CreateDisk(obj *InitParams) error {
 
 	if h.format == FMT_UNKNOWN {
 		return errors.New("format unknow.")
@@ -183,30 +202,32 @@ func (h HyperLayer) CreateDisk(obj *InitParams) error {
 	return nil
 }
 
-func (h *HyperLayer) return_BackingFileConfig_Path(_path *string) (string, error) {
+func (h *HBM) return_BackingFileConfig_Path(_path *string) (string, error) {
 
 	if h.format == FMT_UNKNOWN {
 		return "", fmt.Errorf("format unknow.")
 	}
-	if h.format == FMT_QCOW2 {
-		if h.backingfileConfig == "" {
-			h.backingfileConfig = *_path + ".yaml"
-		}
-	}
-	if h.format == FMT_LVM {
-		if h.backingfileConfig == "" {
-			volname := path.Base(*_path)
-			usr, err := user.Current()
-			hb_Dir := usr.HomeDir + "/.hb"
-			info := hb_Dir + "/lvinfo"
-			if PathFileExists(info) == false {
-				err = os.Mkdir(info, 0755)
-				if err != nil {
-					return "", fmt.Errorf("create dir '%s' faild. %s", info, err.Error())
-				}
-			}
-			h.backingfileConfig = info + "/" + volname
-		}
-	}
-	return h.backingfileConfig, nil
+
+	return h.volInfo.BackingFile, nil
+	// if h.format == FMT_QCOW2 {
+	// 	if h.backingfileConfig == "" {
+	// 		h.backingfileConfig = *_path + ".yaml"
+	// 	}
+	// }
+	// if h.format == FMT_LVM {
+	// 	if h.backingfileConfig == "" {
+	// 		volname := path.Base(*_path)
+	// 		usr, err := user.Current()
+	// 		hb_Dir := usr.HomeDir + "/.hb"
+	// 		info := hb_Dir + "/lvinfo"
+	// 		if PathFileExists(info) == false {
+	// 			err = os.Mkdir(info, 0755)
+	// 			if err != nil {
+	// 				return "", fmt.Errorf("create dir '%s' faild. %s", info, err.Error())
+	// 			}
+	// 		}
+	// 		h.backingfileConfig = info + "/" + volname
+	// 	}
+	// }
+	//return h.backingfileConfig, nil
 }

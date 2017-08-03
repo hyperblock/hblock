@@ -68,7 +68,9 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 			layerUUID:  layer,
 			output:     fileName,
 		}
-		h, err := CreateHyperLayer(FMT_UNKNOWN, &backingFileConfig.Format)
+
+		//h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig.Format)
+		h, err := CreateHBM(obj.volume)
 		if err != nil {
 			return 0, err
 		}

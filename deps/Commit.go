@@ -44,7 +44,8 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	backingFileConfig := return_BackingFileConfig_Path(&backingFilePath)
-	h, err := CreateHyperLayer(FMT_UNKNOWN, &backingFileConfig)
+	//h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig)
+	h, err := CreateHBM_fromExistVol(obj.volumeName)
 	if err != nil {
 		return FAIL, err
 	}

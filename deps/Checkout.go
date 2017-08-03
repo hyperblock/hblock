@@ -100,7 +100,8 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		//print_Error(err.Error(), logger)
 		return FAIL, err
 	}
-	h, err := CreateHyperLayer(FMT_UNKNOWN, &backingFileConfig)
+	//	h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig)
+	h, err := CreateHBM_fromExistVol(obj.volume)
 	if err != nil {
 		return FAIL, err
 	}
