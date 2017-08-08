@@ -70,7 +70,7 @@ func push_volume(obj PushParams, logger *log.Logger) (int, error) {
 		}
 
 		//h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig.Format)
-		h, err := CreateHBM(obj.volume)
+		h, err := CreateHBM(FMT_UNKNOWN, obj.volume)
 		if err != nil {
 			return 0, err
 		}

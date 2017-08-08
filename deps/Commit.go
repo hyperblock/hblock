@@ -39,11 +39,11 @@ func volume_commit(obj CommitParams, logger *log.Logger) (int, error) {
 	}
 
 	print_Log("Confirm backingfile's format...", logger)
-	backingFilePath, err := return_Volume_BackingFile(&obj.volumeName)
+	//	backingFilePath, err := return_Volume_BackingFile(&obj.volumeName)
 	if err != nil {
 		return FAIL, err
 	}
-	backingFileConfig := return_BackingFileConfig_Path(&backingFilePath)
+	//	backingFileConfig := return_BackingFileConfig_Path(&backingFilePath)
 	//h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig)
 	h, err := CreateHBM_fromExistVol(obj.volumeName)
 	if err != nil {

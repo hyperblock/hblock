@@ -133,27 +133,25 @@ func (p OptSelector) init(args []string) (int, error) {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf(msg)
 	}
-	directPathFlg := false
+	//directPathFlg := false
 	index := strings.LastIndex(templateName, "/")
 	if index != -1 {
-		directPathFlg = true
+		// 	directPathFlg = true
+		// } else {
+		templateName = templateName[index+1:]
 	}
 	if options.Output == "" {
-		if directPathFlg {
-			options.Output = templateName
-		} else {
-			options.Output = templateName[index+1:]
-		}
+		options.Output = templateName
 	}
 	if options.Format == "" {
 		p.Usage(&options)
 		return FAIL, fmt.Errorf("Need specify format.")
 	}
 	//	fmt.Println(templateName)
-	if !directPathFlg {
-		templateDir, _ := return_TemplateDir()
-		templateName = templateDir + "/" + templateName
-	}
+	// if !directPathFlg {
+	// 	templateDir, _ := return_TemplateDir()
+	// 	templateName = templateDir + "/" + templateName
+	// }
 	obj := InitParams{name: templateName, size: sizeI64, output: options.Output, checkout: true, format: options.Format}
 	msg := fmt.Sprintf("Init template named '%s' and new volume '%s'", templateName, obj.output)
 	print_Log(msg, p.logger)

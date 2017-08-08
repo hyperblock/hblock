@@ -34,7 +34,7 @@ func volume_Rebase(obj *RebaseParams, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	print_Log("LayerUUID: "+obj.parentLayer, logger)
-	h, err := CreateHBM(FMT_UNKNOWN, &config0.Format)
+	h, err := CreateHBM(FMT_UNKNOWN, config0.Format)
 	if err != nil {
 		return FAIL, err
 	}

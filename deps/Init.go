@@ -26,7 +26,7 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		fmtTag = FMT_LVM
 	}
 	print_Log("Create hyperlayer object...", logger)
-	h, err := CreateHBM(fmtTag, "")
+	h, err := CreateHBM(fmtTag, obj.name)
 	if err != nil {
 		return FAIL, err
 	}

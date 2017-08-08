@@ -44,7 +44,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 		return OK, nil
 	}
 	layer := ""
-	backingFileConfig := ""
+	//	backingFileConfig := ""
 	print_Trace("volume: " + obj.volume)
 	if obj.volume != "" {
 		backingFile, err := return_Volume_BackingFile(&obj.volume)
@@ -52,7 +52,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-		backingFileConfig = return_BackingFileConfig_Path(&backingFile)
+		//	backingFileConfig = return_BackingFileConfig_Path(&backingFile)
 		print_Log("Get full uuid of "+obj.layer, logger)
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
@@ -74,7 +74,7 @@ func volume_checkout(obj *CheckoutParams, logger *log.Logger) (int, error) {
 			//	print_Error(err.Error(), logger)
 			return FAIL, err
 		}
-		backingFileConfig = return_BackingFileConfig_Path(&backingFile)
+		//backingFileConfig = return_BackingFileConfig_Path(&backingFile)
 		layer, err = return_LayerUUID(backingFile, obj.layer, false)
 		if err != nil {
 			//	print_Error(err.Error(), logger)

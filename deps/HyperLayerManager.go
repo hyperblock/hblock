@@ -29,7 +29,7 @@ type HBM struct {
 func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 
 	ret := HBM{}
-	configPath := return_Volume_ConfigPath(&volPath)
+	//	configPath := return_Volume_ConfigPath(&volPath)
 	config := YamlVolumeConfig{}
 	err := LoadConfig(&config, &volPath)
 	ret.volConfigPath = volPath
@@ -43,7 +43,7 @@ func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 	} else {
 		return HBM{}, fmt.Errorf("Can't confirm Volume's format.")
 	}
-	return ret, nil
+	return ret, nilIL
 }
 
 func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {

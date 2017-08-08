@@ -125,7 +125,7 @@ func PullBranch(obj *PullParams, logger *log.Logger) error {
 	if err != nil {
 		return err
 	}
-	h, err := CreateHBM(FMT_UNKNOWN, &backingFileConfig.Format)
+	h, err := CreateHBM(FMT_UNKNOWN, backingFileConfig.Format)
 	if err != nil {
 		return err
 	}
