@@ -3,7 +3,9 @@ package hblock
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"os/user"
 	"strings"
 
 	"github.com/hyperblock/lvdiff/lvbackup/lvmutil"
@@ -23,6 +25,8 @@ type HBM struct {
 	args          []string
 	location      string
 	volConfigPath string
+	backingfile   string
+	name          string
 	volInfo       YamlVolumeConfig
 }
 
@@ -43,12 +47,12 @@ func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 	} else {
 		return HBM{}, fmt.Errorf("Can't confirm Volume's format.")
 	}
-	return ret, nilIL
+	return ret, nil
 }
 
 func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
 
-	ret := HBM{}
+	this := HBM{}
 	// if fmt_tag == FMT_UNKNOWN {
 	// 	if *backingfilePath_Or_format == "qcow2" {
 	// 		fmt_tag = FMT_QCOW2
@@ -71,15 +75,45 @@ func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
 	// 		}
 	// 	}
 	// }
-	ret.format = fmt_tag
-	ret.location = return_AbsPath(fileFullName)
+	this.format = fmt_tag
+	this.location = return_AbsPath(fileFullName)
 
-	return ret, ret.check_Command()
+	this.name = func() string {
+		index := strings.LastIndex(this.location, "/")
+		return this.location[index+1:]
+	}()
+	this.backingfile = this.get_BackingFilePath(this.name)
+	if PathFileExists(this.backingfile) {
+		return this, fmt.Errorf("Backingfile '%s' already exists !", this.name)
+	}
+
+	return this, this.check_Command()
 }
 
-func (h *HBM) SetArgs(_args []string) {
+func (this *HBM) SetArgs(_args []string) {
 
-	h.args = _args
+	this.args = _args
+}
+
+func (this *HBM) hbRootDir() string {
+
+	usr, _ := user.Current()
+	return usr.HomeDir + "/" + ".hb"
+}
+
+func (this *HBM) get_BackingFilePath(name string) string {
+
+	return fmt.Sprintf("%s/img/%s", this.hbRootDir(), name)
+}
+
+func (this *HBM) pathFileExists() bool {
+
+	_, err := os.Stat(this.backingfile)
+	if err != nil {
+		return false
+	}
+	return true
+
 }
 
 func (h *HBM) check_Command() (err error) {
