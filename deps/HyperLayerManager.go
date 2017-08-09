@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"strings"
 
 	"github.com/hyperblock/lvdiff/lvbackup/lvmutil"
@@ -28,26 +29,30 @@ type HBM struct {
 	backingfile   string
 	name          string
 	volInfo       YamlVolumeConfig
+	imgInfo       YamlBackingFileConfig
+	globalCfg     GlobalConfig
 }
 
 func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 
-	ret := HBM{}
+	this := HBM{}
 	//	configPath := return_Volume_ConfigPath(&volPath)
 	config := YamlVolumeConfig{}
 	err := LoadConfig(&config, &volPath)
-	ret.volConfigPath = volPath
+	this.volConfigPath = volPath
 	if err != nil {
 		return HBM{}, nil
 	}
 	if config.Format == "qcow2" {
-		ret.format = FMT_QCOW2
+		this.format = FMT_QCOW2
 	} else if config.Format == "lvm" {
-		ret.format = FMT_LVM
+		this.format = FMT_LVM
 	} else {
 		return HBM{}, fmt.Errorf("Can't confirm Volume's format.")
 	}
-	return ret, nil
+	g_cfg_path := this.hbRootDir() + "/config.yaml"
+	LoadConfig(this.globalCfg, &g_cfg_path)
+	return this, nil
 }
 
 func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
@@ -78,16 +83,17 @@ func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
 	this.format = fmt_tag
 	this.location = return_AbsPath(fileFullName)
 
-	this.name = func() string {
-		index := strings.LastIndex(this.location, "/")
-		return this.location[index+1:]
-	}()
+	this.name = path.Base(this.location)
 	this.backingfile = this.get_BackingFilePath(this.name)
 	if PathFileExists(this.backingfile) {
 		return this, fmt.Errorf("Backingfile '%s' already exists !", this.name)
 	}
+	return this, nil
+}
 
-	return this, this.check_Command()
+func (this *HBM) getImgConfigPath() string {
+
+	return this.backingfile + ".yaml"
 }
 
 func (this *HBM) SetArgs(_args []string) {
@@ -103,7 +109,10 @@ func (this *HBM) hbRootDir() string {
 
 func (this *HBM) get_BackingFilePath(name string) string {
 
-	return fmt.Sprintf("%s/img/%s", this.hbRootDir(), name)
+	if this.globalCfg.ImgDir == "" {
+		this.globalCfg.ImgDir = "img"
+	}
+	return fmt.Sprintf("%s/%s/%s", this.hbRootDir(), this.globalCfg.ImgDir, name)
 }
 
 func (this *HBM) pathFileExists() bool {

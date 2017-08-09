@@ -107,6 +107,7 @@ type RemoteParams struct {
 type GlobalConfig struct {
 	UserName  string `yaml:"user.name"`
 	UserEmail string `yaml:"user.email"`
+	ImgDir    string `yaml:"backingfile.directory"`
 }
 
 type UserInfo struct {

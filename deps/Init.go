@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"log"
-	"os"
-	"path"
 )
 
 func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
@@ -31,30 +29,43 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		return FAIL, err
 	}
 	print_Log("Create backing file config file.", logger)
-	configPath, err := h.return_BackingFileConfig_Path(&obj.name) //obj.name + ".yaml"
-	if err != nil {
-		return FAIL, err
-	}
+	//configPath, err := h.return_BackingFileConfig_Path(&obj.name) //obj.name + ".yaml"
+
+	// if err != nil {
+	// 	return FAIL, err
+	// }
+	// yamlConfig := YamlBackingFileConfig{
+	// 	Name:        path.Base(obj.name),
+	// 	VirtualSize: obj.size,
+	// 	DefaultHead: "master",
+	// 	Format:      obj.format,
+	// }
+	// err = WriteConfig(&yamlConfig, &configPath)
+	// if err != nil {
+	// 	return FAIL, err
+	// }
+	// err = h.CreateDisk(&obj)
+	// if err != nil {
+	// 	os.Remove(configPath)
+	// 	return FAIL, err
+	// }
+	configPath := h.getImgConfigPath()
 	yamlConfig := YamlBackingFileConfig{
-		Name:        path.Base(obj.name),
+		Name:        h.name,
 		VirtualSize: obj.size,
 		DefaultHead: "master",
 		Format:      obj.format,
 	}
-	err = WriteConfig(&yamlConfig, &configPath)
+	err = WriteConfig(yamlConfig, &configPath)
 	if err != nil {
-		return FAIL, err
-	}
-	err = h.CreateDisk(&obj)
-	if err != nil {
-		os.Remove(configPath)
-		return FAIL, err
+		return FAIL, fmt.Errorf("write backingfile's config failed.")
 	}
 	msg := fmt.Sprintf("Create template '%s' finished.", obj.name)
 	print_Log(Format_Success(msg), logger)
 	if !obj.checkout {
 		return OK, nil
 	}
+
 	// print_Log("Creating volume named "+obj.output, logger)
 
 	// checkoutObj := CheckoutParams{layer: "", output: obj.output, template: obj.name}
