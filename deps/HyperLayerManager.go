@@ -55,36 +55,16 @@ func CreateHBM_fromExistVol(volPath string) (HBM, error) {
 	return this, nil
 }
 
-func CreateHBM(fmt_tag int, fileFullName string) (HBM, error) {
+func CreateHBM_Img(obj *InitParams) (HBM, error) {
 
 	this := HBM{}
-	// if fmt_tag == FMT_UNKNOWN {
-	// 	if *backingfilePath_Or_format == "qcow2" {
-	// 		fmt_tag = FMT_QCOW2
-
-	// 	} else if *backingfilePath_Or_format == "lvm" {
-	// 		fmt_tag = FMT_LVM
-	// 	} else {
-	// 		config := YamlBackingFileConfig{}
-	// 		err := LoadConfig(&config, backingfilePath_Or_format)
-	// 		ret.backingfileConfig = *backingfilePath_Or_format
-	// 		if err != nil {
-	// 			return HBM{}, nil
-	// 		}
-	// 		if config.Format == "qcow2" {
-	// 			fmt_tag = FMT_QCOW2
-	// 		} else if config.Format == "lvm" {
-	// 			fmt_tag = FMT_LVM
-	// 		} else {
-	// 			return HBM{}, fmt.Errorf("Can't confirm backingfile's format.")
-	// 		}
-	// 	}
-	// }
-	this.format = fmt_tag
-	this.location = return_AbsPath(fileFullName)
-
-	this.name = path.Base(this.location)
-	this.backingfile = this.get_BackingFilePath(this.name)
+	this.name = path.Base(obj.name)
+	this.imgInfo.Format = obj.format
+	this.imgInfo.Name = path.Base(obj.name)
+	this.imgInfo.VirtualSize = obj.size
+	this.location = obj.output
+	this.imgInfo.DefaultHead = "master"
+	this.backingfile = this.get_BackingFilePath()
 	if PathFileExists(this.backingfile) {
 		return this, fmt.Errorf("Backingfile '%s' already exists !", this.name)
 	}
@@ -107,12 +87,19 @@ func (this *HBM) hbRootDir() string {
 	return usr.HomeDir + "/" + ".hb"
 }
 
-func (this *HBM) get_BackingFilePath(name string) string {
+func (this *HBM) get_BackingFilePath() string {
 
-	if this.globalCfg.ImgDir == "" {
-		this.globalCfg.ImgDir = "img"
+	ret := ""
+	if this.format == FMT_QCOW2 {
+		if this.globalCfg.ImgDir == "" {
+			this.globalCfg.ImgDir = "img"
+		}
+		ret = fmt.Sprintf("%s/%s/%s", this.hbRootDir(), this.globalCfg.ImgDir, this.name)
 	}
-	return fmt.Sprintf("%s/%s/%s", this.hbRootDir(), this.globalCfg.ImgDir, name)
+	if this.format == FMT_LVM {
+		ret = this.location
+	}
+	return ret
 }
 
 func (this *HBM) pathFileExists() bool {
@@ -193,7 +180,7 @@ func (h HBM) Rebase(obj *RebaseParams) error {
 	return nil
 }
 
-func (h HBM) Checkout(obj *CheckoutParams) error {
+func (h *HBM) Checkout(obj *CheckoutParams) error {
 
 	print_Trace("HyperLayer.Checkout.")
 
@@ -211,27 +198,27 @@ func (h HBM) Checkout(obj *CheckoutParams) error {
 	return errors.New("format unknow.")
 }
 
-func (h HBM) CreateDisk(obj *InitParams) error {
+func (this *HBM) CreateDisk() error {
 
-	if h.format == FMT_UNKNOWN {
+	if this.format == FMT_UNKNOWN {
 		return errors.New("format unknow.")
 	}
-	if h.format == FMT_QCOW2 {
+	if this.format == FMT_QCOW2 {
 		g, errno := guestfs.Create()
 		if errno != nil {
 			return errno
 		}
 		defer g.Close()
-		if errCreate := g.Disk_create(obj.name, "qcow2", obj.size, nil); errCreate != nil {
+		if errCreate := g.Disk_create(this.backingfile, "qcow2", this.imgInfo.VirtualSize, nil); errCreate != nil {
 			return fmt.Errorf(errCreate.Errmsg)
 		}
 	}
-	if h.format == FMT_LVM {
-		volPath := obj.output
-		if strings.Index(obj.output, "/dev") != 0 {
+	if this.format == FMT_LVM {
+		volPath := this.backingfile
+		if strings.Index(volPath, "/dev") == -1 {
 			volPath = "/dev/" + volPath
 		}
-		token := strings.Split(volPath, "/")
+		token := strings.Split(this.location, "/")
 		//token = token[2:]
 		if len(token) < 5 {
 			return fmt.Errorf("invalid volume path. need 'VolumeGroupName[Path]/ThinPoolLogicalVolume/LogicalVolume' ")
@@ -239,7 +226,7 @@ func (h HBM) CreateDisk(obj *InitParams) error {
 		vg := token[2]
 		pool := token[3]
 		vol := token[4]
-		err := lvmutil.CreateThinLv(vg, pool, vol, obj.size)
+		err := lvmutil.CreateThinLv(vg, pool, vol, this.imgInfo.VirtualSize)
 		return err
 	}
 	return nil

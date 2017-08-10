@@ -19,47 +19,26 @@ func create_empty_template(obj InitParams, logger *log.Logger) (int, error) {
 		return FAIL, fmt.Errorf("Already exist.")
 		//	return FAIL, nil
 	}
-	fmtTag := FMT_QCOW2
-	if obj.format == "lvm" {
-		fmtTag = FMT_LVM
-	}
+
 	print_Log("Create hyperlayer object...", logger)
-	h, err := CreateHBM(fmtTag, obj.name)
+	h, err := CreateHBM(&obj)
 	if err != nil {
 		return FAIL, err
 	}
-	print_Log("Create backing file config file.", logger)
-	//configPath, err := h.return_BackingFileConfig_Path(&obj.name) //obj.name + ".yaml"
+	// print_Log("Create backing file config file.", logger)
 
-	// if err != nil {
-	// 	return FAIL, err
-	// }
+	// configPath := h.getImgConfigPath()
 	// yamlConfig := YamlBackingFileConfig{
-	// 	Name:        path.Base(obj.name),
+	// 	Name:        h.name,
 	// 	VirtualSize: obj.size,
 	// 	DefaultHead: "master",
 	// 	Format:      obj.format,
 	// }
-	// err = WriteConfig(&yamlConfig, &configPath)
+	// err = WriteConfig(yamlConfig, &configPath)
 	// if err != nil {
-	// 	return FAIL, err
+	// 	return FAIL, fmt.Errorf("write backingfile's config failed.")
 	// }
-	// err = h.CreateDisk(&obj)
-	// if err != nil {
-	// 	os.Remove(configPath)
-	// 	return FAIL, err
-	// }
-	configPath := h.getImgConfigPath()
-	yamlConfig := YamlBackingFileConfig{
-		Name:        h.name,
-		VirtualSize: obj.size,
-		DefaultHead: "master",
-		Format:      obj.format,
-	}
-	err = WriteConfig(yamlConfig, &configPath)
-	if err != nil {
-		return FAIL, fmt.Errorf("write backingfile's config failed.")
-	}
+	h.CreateDisk()
 	msg := fmt.Sprintf("Create template '%s' finished.", obj.name)
 	print_Log(Format_Success(msg), logger)
 	if !obj.checkout {

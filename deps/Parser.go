@@ -140,6 +140,10 @@ func (p OptSelector) init(args []string) (int, error) {
 		// } else {
 		templateName = templateName[index+1:]
 	}
+	if options.Format == "lvm" && options.Output == "" {
+		p.Usage(&options)
+		return FAIL, fmt.Errorf("need specify -o if format is 'lvm'")
+	}
 	if options.Output == "" {
 		options.Output = templateName
 	}
